@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OJT Manager (Cloud Full)</title>
+    <title>OJT Manager (Complete)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="importmap">
@@ -30,26 +30,21 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
+        import React, { useState, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
         import { 
             Users, UserPlus, CheckSquare, BarChart2, Calendar, ChevronRight, 
-            ChevronDown, ChevronUp, AlertCircle, Save, Trash2, TrendingUp, 
-            Award, BookOpen, Briefcase, Cloud, CloudLightning, RefreshCw, 
-            Info, Medal, Star, Tag, HelpCircle, GraduationCap, CheckCircle, 
-            XCircle, Coins, Calculator, Target, MessageCircle, ShieldCheck, 
-            Lock, Loader2, Menu, Activity, ToggleLeft, ToggleRight, TestTube, 
-            HardDrive 
+            ChevronDown, ChevronUp, AlertCircle, RefreshCw, Medal, Star, HelpCircle, 
+            GraduationCap, CheckCircle, XCircle, Calculator, Target, 
+            MessageCircle, ShieldCheck, Lock, Loader2, Activity, TestTube, 
+            Cloud, Briefcase, Award, Trash2
         } from 'lucide-react';
-        import { 
-            Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
-            ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell 
-        } from 'recharts';
+        import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
         // ==========================================
         // 【設定】ここにGASのウェブアプリURLを貼り付けてください
         // ==========================================
-        const GAS_API_URL = "ここにGASのウェブアプリURLを貼り付けてください"; 
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzDXpTJkbWLwOfMruSE7aJNBeW6N1_8ZG7Q4cnWOBZld_1jYcFt1AiTqcTWsYC1QOZ7Cg/exec"; 
 
         // --- Data Management (GAS Version) ---
         const useGasDataManager = (isPracticeMode) => {
@@ -59,18 +54,13 @@
             const [isLoading, setIsLoading] = useState(false);
             const isConfigured = GAS_API_URL && GAS_API_URL.startsWith('http');
 
-            // Fetch Data
             const fetchData = async () => {
                 if (!isConfigured) return;
                 setIsLoading(true);
                 try {
                     const response = await fetch(GAS_API_URL);
                     const data = await response.json();
-                    if (Array.isArray(data)) {
-                        setEmployees(data);
-                    } else {
-                        setEmployees([]);
-                    }
+                    setEmployees(Array.isArray(data) ? data : []);
                     setSaveStatus('synced');
                 } catch (e) {
                     console.error("Load Error:", e);
@@ -81,7 +71,6 @@
                 }
             };
 
-            // Init
             useEffect(() => {
                 if (isPracticeMode) {
                     const saved = localStorage.getItem('ojt_practice_data');
@@ -92,16 +81,13 @@
                 }
             }, [isPracticeMode]);
 
-            // Save Data
             const saveData = async (newData) => {
                 setEmployees(newData);
-                
                 if (isPracticeMode) {
                     localStorage.setItem('ojt_practice_data', JSON.stringify(newData));
                     return;
                 }
                 if (!isConfigured) return;
-
                 setSaveStatus('saving');
                 try {
                     await fetch(GAS_API_URL, {
@@ -113,7 +99,7 @@
                 } catch (e) {
                     console.error("Save Error:", e);
                     setSaveStatus('error');
-                    alert("【保存エラー】\nインターネット接続とGASの設定を確認してください。");
+                    alert("保存エラー: インターネット接続を確認してください");
                 }
             };
 
@@ -127,11 +113,9 @@
             return { employees, isReady, saveStatus, isLoading, actions, isConfigured };
         };
 
-        // --- Helper: Safe ID Generator ---
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
-        // --- Data Definitions (Original Full Set) ---
-
+        // --- Data Definitions (Full Restored) ---
         const COURSE_GOALS = {
             'A_Exp': { course: '即戦力・管理者候補コース', goal: '現場のボトルネックを解消し、数値成果（売上・品質）と人材育成を牽引する。' },
             'A_Inexp': { course: '支援員・職業指導員コース', goal: '3ヶ月で「一人の戦力」となり、6ヶ月で利用者の「労働者性」を高める指導ができる。' },
@@ -139,7 +123,6 @@
             'B_Inexp': { course: '生活支援員コース', goal: '3ヶ月で基本動作と安全管理を徹底し、6ヶ月で利用者の「選択」を支える支援ができる。' },
             'default': { course: '標準コース', goal: '基本業務の習得と定着を目指す。' }
         };
-
         const SCORE_DEFINITIONS = {
             1: '手順や概念を理解していない',
             2: '正確に説明・実践できない、間違いや抜けが多い',
@@ -147,7 +130,6 @@
             4: 'ほぼ理解し、実践・説明が安定してできる、補足説明や応用もある程度可能',
             5: '完全に理解し、実践・説明・応用ができる、周囲に教えられるレベル'
         };
-
         const CATEGORY_STYLES = {
             '利用者管理': { border: 'border-l-sky-500', badgeBg: 'bg-sky-100', badgeText: 'text-sky-700', icon: 'text-sky-500' },
             '接遇・マナー': { border: 'border-l-rose-400', badgeBg: 'bg-rose-100', badgeText: 'text-rose-700', icon: 'text-rose-400' },
@@ -158,7 +140,6 @@
             'default': { border: 'border-l-slate-400', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700', icon: 'text-slate-400' }
         };
 
-        // --- Templates ---
         const COMMON_ITEMS_MONTH1 = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'ポチパス・ノート・Excel等、事業所指定の方法でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '「事実」と「推測」を分けて記録できる', passingScore: 3 },
@@ -178,7 +159,6 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外、内職等、一連の作業内容を全体的に把握している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const COMMON_ITEMS_A_INEXP = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'マニュアルを見ずに自力でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '誤字脱字なく、「事実（何があったか）」を入力できる(例：〇〇さんが作業を中断した)', passingScore: 3 },
@@ -198,7 +178,6 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外先、内職等、一連の作業内容を理解している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const COMMON_ITEMS_A_EXP = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'マニュアルを見ずに自力でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '「事実」と「考察」を分けて記録できる。(なぜ中断したかの背景や、次回への対策案まで記載できているか)', passingScore: 3 },
@@ -218,7 +197,6 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外先、内職等、一連の作業内容を理解している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH1_EXP = [
             { id: 'a_safety_pos', category: '作業管理', subCategory: '移動時の安全', task: 'ポジショニング', deadline: '1ヶ月以内', month: 1, criteria: '特性に合わせた位置」を取れる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_safety_pace', category: '作業管理', subCategory: '移動時の安全', task: 'ペース配分', deadline: '1ヶ月以内', month: 1, criteria: '危険の先回りと安全誘導を取れる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
@@ -230,7 +208,6 @@
             { id: 'a_labor_manage', category: '作業管理', subCategory: '労務', task: '休憩・残業管理', deadline: '1ヶ月以内', month: 1, criteria: '配慮と規律を両立した勤怠指導ができる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_productivity_mind', category: '作業管理', subCategory: '生産性', task: '生産性の意識', deadline: '1ヶ月以内', month: 1, criteria: '主要な受注案件の作業マニュアルを読み、「検品基準（良品・不良品の境界線）」を正しく理解・説明できる。', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
         ];
-
         const TYPE_A_ITEMS_MONTH1_INEXP = [
             { id: 'a_safety_pos', category: '作業管理', subCategory: '移動時の安全', task: 'ポジショニング', deadline: '1ヶ月以内', month: 1, criteria: '車道側・斜め後方の位置をキープ', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_safety_pace', category: '作業管理', subCategory: '移動時の安全', task: 'ペース配分', deadline: '1ヶ月以内', month: 1, criteria: '利用者の歩行ペースに合わせ、急かさない', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
@@ -241,28 +218,24 @@
             { id: 'a_labor_manage', category: '作業管理', subCategory: '労務', task: '休憩・残業管理', deadline: '1ヶ月以内', month: 1, criteria: '利用者に労基法が適用されることを理解し、1分たりとも休憩を削ったり、無断で残業させたりしない', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_productivity_mind', category: '作業管理', subCategory: '生産性', task: '生産性の意識', deadline: '1ヶ月以内', month: 1, criteria: '「訓練だから遅れてもいい」ではなく、顧客との契約(納期・品質)が最優先であることを理解し行動できる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
         ];
-
         const TYPE_A_ITEMS_MONTH2_EXP = [
             { id: 'a_prod_manage_exp', category: '作業管理', subCategory: '生産管理・配置', task: '進捗管理', deadline: '2ヶ月以内', month: 2, criteria: '担当するラインの目標数に対し、昼休憩の時点で「ペース通りか、遅れているか」を数値（あと何個）で把握できている。', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_exp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '適切なフィードバック', deadline: '2ヶ月以内', month: 2, criteria: '利用者のミスや問題行動に対し、「障害特性によるもの（環境調整が必要）」か「意識の問題(指導が必要)」かを明確に区別し、適切なフィードバック（叱責ではなく工夫、または規律指導）を使い分けられる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH2_INEXP = [
             { id: 'a_prod_manage_inexp', category: '作業管理', subCategory: '生産管理・配置', task: '品質維持', deadline: '2ヶ月以内', month: 2, criteria: '担当工程において、自身の検品ミス（不良流出）を月間0件にする', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_inexp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '感情コントロール', deadline: '2ヶ月以内', month: 2, criteria: '利用者からの「過度な要求」や「私語」に対し、感情的にならず毅然と切り上げて作業へ促すことができる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_inexp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH3_EXP = [
             { id: 'a_bottleneck_exp_m3', category: '作業管理', subCategory: 'ボトルネック解消', task: '納期遅延ゼロ', deadline: '3ヶ月以内', month: 3, criteria: '【定量】担当ラインの納期遅延・未達を「0回」にする※作業が滞る原因を特定し、工程の修正案を1件以上提出し実行する', specificType: 'A', passingScore: 3 },
             { id: 'a_assessment_exp_m3', category: '利用者理解', subCategory: 'アセスメント', task: '改善指導', deadline: '3ヶ月以内', month: 3, criteria: '利用者の作業課題(遅い、雑)に対し、具体的な改善指導(治具提案や動作指導)ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH3_INEXP = [
             { id: 'a_speed_area1_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当①', task: '作業スピード', deadline: '3ヶ月以内', month: 3, criteria: '【定量】職員作業（検品・梱包等）において、ベテラン職員の80%以上のスピードでこなせる', specificType: 'A', passingScore: 3 },
             { id: 'a_speed_area2_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当②', task: 'エリア管理', deadline: '3ヶ月以内', month: 3, criteria: '特定の作業エリアを一人で任され、利用者の質問に全て答えられる（保留にしない）', specificType: 'A', passingScore: 3 },
@@ -270,14 +243,12 @@
             { id: 'a_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH4_6_EXP = [
             { id: 'a_negotiation_exp_m46', category: '作業管理', subCategory: '対外折衝・営業', task: '対外折衝・営業', deadline: '4-6ヶ月', month: 4, criteria: '企業担当者との納期調整、不良品発生時の謝罪・対策報告を単独で完結できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_exp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '「業務効率」と「障害特性」のバランスを見極め、特定の利用者がミスなく働けるための具体的配慮（ツール導入やルール変更）を1件以上実現する', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
         const TYPE_A_ITEMS_MONTH4_6_INEXP = [
             { id: 'a_goal_awareness_inexp_m46', category: '作業管理', subCategory: '目標意識', task: '目標意識', deadline: '4-6ヶ月', month: 4, criteria: '「今日は〇個作る」という目標を利用者に共有し、進捗管理の声掛け（ペース配分）ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_rule_guidance_inexp_m46', category: '作業管理', subCategory: 'ルールの指導', task: 'ルールの指導', deadline: '4-6ヶ月', month: 4, criteria: '利用者の身だしなみ違反やルール違反に対し、見て見ぬふりをせずその場で注意・指導できる', specificType: 'A', passingScore: 3 },
@@ -285,21 +256,18 @@
             { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH2_EXP = [
             { id: 'b_behavior_exp_m2', category: '利用者理解', subCategory: '行動障害/不穏対応', task: '不穏・パニック対応', deadline: '2ヶ月以内', month: 2, criteria: '不穏・パニックになりそうな利用者に対し、予兆を察知してクールダウン等の予防介入ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_cut_exp_m2', category: '作業管理', subCategory: '作業切り出し', task: '工程考案・導入', deadline: '2ヶ月以内', month: 2, criteria: '重度者、普段参加できていないでも利用者も参加できる新しい工程等を考案し、現場に導入する', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_exp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'B', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH2_INEXP = [
             { id: 'b_trust_inexp_m2', category: '利用者理解', subCategory: '信頼関係・受容', task: '受容的対応', deadline: '2ヶ月以内', month: 2, criteria: '作業拒否や離席に対し、感情的にならず「待つ」「寄り添う」対応ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_rule_inexp_m2', category: '作業管理', subCategory: '工賃規定の理解', task: '工賃ルール説明', deadline: '2ヶ月以内', month: 2, criteria: '時給制ではなく、成果や通所日数で工賃が決まるルールを正しく理解し、利用者に聞かれたら答えられる', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_inexp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'B', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH3_EXP = [
             { id: 'b_structure_exp_m3', category: '利用者管理', subCategory: '構造化/環境設定', task: 'リスク低減', deadline: '3ヶ月以内', month: 3, criteria: '担当エリアのヒヤリハット・トラブル件数を前月比で減少させる', specificType: 'B', passingScore: 3 },
             { id: 'b_draft_exp_m3', category: '利用者管理', subCategory: '原案作成', task: '計画案作成', deadline: '3ヶ月以内', month: 3, criteria: '個別支援計画の「短期目標」に対し、現状の課題と次のステップを具体的に言語化し、サビ管に提案できる', specificType: 'B', passingScore: 3 },
@@ -307,7 +275,6 @@
             { id: 'b_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH3_INEXP = [
             { id: 'b_group_grasp_inexp_m3', category: '利用者管理', subCategory: '集団の把握', task: '見守り', deadline: '3ヶ月以内', month: 3, criteria: '担当エリア（利用者5〜10名程度）を一人で見守り、事故・トラブル件数0件で1日を終えられる', specificType: 'B', passingScore: 3 },
             { id: 'b_record_quality_inexp_m3', category: '利用者管理', subCategory: '記録の質', task: '事実記録', deadline: '3ヶ月以内', month: 3, criteria: '日報やケース記録において、「推測」ではなく「事実（5W1H）」に基づいた記録が書ける', specificType: 'B', passingScore: 3 },
@@ -315,14 +282,12 @@
             { id: 'b_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点', specificType: 'B', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH4_6_EXP = [
             { id: 'b_wage_improve_exp_m46', category: '作業管理', subCategory: '工賃向上', task: '工賃向上施策', deadline: '4-6ヶ月', month: 4, criteria: '【定量】担当利用者の平均工賃（または作業参加時間）を向上させる施策を実行する', specificType: 'B', passingScore: 3 },
             { id: 'b_decision_exp_m46', category: '利用者理解', subCategory: '意思決定支援', task: 'ニーズ引き出し', deadline: '4-6ヶ月', month: 4, criteria: '本人の言葉にならないニーズ（本当はどうしたいか）を対話や観察から引き出し、本人の希望に基づいた新たな目標（やりたい作業や生活の夢）を1つ以上設定する', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
         const TYPE_B_ITEMS_MONTH4_6_INEXP = [
             { id: 'b_choice1_inexp_m46', category: '利用者理解', subCategory: '選択の機会①', task: '自己選択支援', deadline: '4-6ヶ月', month: 4, criteria: '「やりなさい」ではなく「AとBどちらをやりますか？」といった自己選択を促す支援ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_choice2_inexp_m46', category: '利用者理解', subCategory: '選択の機会②', task: '未然報告', deadline: '4-6ヶ月', month: 4, criteria: '利用者の「小さな変化（体調・気分）」を朝の段階で察知し、未然にサビ管へ報告・相談できる', specificType: 'B', passingScore: 3 },
@@ -378,14 +343,11 @@
             const today = new Date();
             const diffTime = Math.abs(today.getTime() - joinDate.getTime());
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays >= 30 && !employee.progress['interview_1']?.checked) {
-                return true;
-            }
+            if (diffDays >= 30 && !employee.progress['interview_1']?.checked) return true;
             return false;
         };
 
         // --- Sub Components ---
-
         const RadarSkillChart = ({ items, progress }) => {
             const categories = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '事業部研修'];
             const data = categories.map(cat => {
@@ -399,7 +361,6 @@
                 const avg = totalScore / catItems.length;
                 return { subject: cat, A: avg, fullMark: 5 };
             });
-
             return (
                 <div className="h-64 w-full flex justify-center items-center bg-white/50 rounded-xl p-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -426,23 +387,14 @@
             }).length;
             const isCompleted = totalReq > 0 && passedReq === totalReq;
             const percent = totalReq > 0 ? Math.round((passedReq / totalReq) * 100) : 0;
-
             return (
                 <div className={`mt-6 rounded-xl border p-4 shadow-sm transition-all duration-500 ${isCompleted ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-2 mb-3">
                     {isCompleted ? <div className="p-2 bg-amber-100 text-amber-600 rounded-full"><Medal size={20} /></div> : <div className="p-2 bg-gray-100 text-gray-500 rounded-full"><Briefcase size={20} /></div>}
-                    <div>
-                    <h4 className={`font-bold text-sm ${isCompleted ? 'text-amber-800' : 'text-gray-700'}`}>施設外就労チャレンジ</h4>
-                    <p className="text-xs text-gray-500">{isCompleted ? '1人で任せてもOK！' : '1人立ち要件の進捗'}</p>
-                    </div>
+                    <div><h4 className={`font-bold text-sm ${isCompleted ? 'text-amber-800' : 'text-gray-700'}`}>施設外就労チャレンジ</h4><p className="text-xs text-gray-500">{isCompleted ? '1人で任せてもOK！' : '1人立ち要件の進捗'}</p></div>
                 </div>
-                <div className="mb-2 flex justify-between items-end">
-                    <span className="text-2xl font-bold text-gray-800">{passedReq}<span className="text-sm text-gray-400 font-normal">/{totalReq}</span></span>
-                    <span className="text-xs font-bold text-gray-500">{percent}%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
-                    <div className={`h-2 rounded-full transition-all duration-1000 ${isCompleted ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${percent}%` }} />
-                </div>
+                <div className="mb-2 flex justify-between items-end"><span className="text-2xl font-bold text-gray-800">{passedReq}<span className="text-sm text-gray-400 font-normal">/{totalReq}</span></span><span className="text-xs font-bold text-gray-500">{percent}%</span></div>
+                <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden"><div className={`h-2 rounded-full transition-all duration-1000 ${isCompleted ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${percent}%` }} /></div>
                 {isCompleted && <div className="text-center py-2 bg-white/60 rounded-lg border border-amber-100 text-amber-700 text-xs font-bold animate-pulse">🎉 1人立ち認定条件クリア！</div>}
                 {!isCompleted && <p className="text-[10px] text-gray-400 leading-tight">対象項目をチェック済み＆評価3点以上にするとクリアです。</p>}
                 </div>
@@ -461,34 +413,18 @@
             const isReady = totalCount > 0 && completedCount === totalCount;
             const isApproved = !!approvalData?.approved;
             const [managerName, setManagerName] = useState(approvalData?.approverName || '');
-
-            const handleApprove = () => {
-                if (!managerName) { alert('マネージャー名を入力してください'); return; }
-                onApprove(managerName);
-            };
-
+            const handleApprove = () => { if (!managerName) { alert('マネージャー名を入力してください'); return; } onApprove(managerName); };
             return (
                 <div className={`mt-8 p-6 rounded-xl border-2 transition-all ${isApproved ? 'border-emerald-200 bg-emerald-50' : isReady ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-gray-50'}`}>
                 <div className="flex items-start gap-4">
-                    <div className={`p-3 rounded-full ${isApproved ? 'bg-emerald-100 text-emerald-600' : isReady ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-400'}`}>
-                    {isApproved ? <ShieldCheck size={24} /> : isReady ? <Target size={24} /> : <Lock size={24} />}
-                    </div>
+                    <div className={`p-3 rounded-full ${isApproved ? 'bg-emerald-100 text-emerald-600' : isReady ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-400'}`}>{isApproved ? <ShieldCheck size={24} /> : isReady ? <Target size={24} /> : <Lock size={24} />}</div>
                     <div className="flex-grow">
                     <h3 className={`text-lg font-bold mb-1 ${isApproved ? 'text-emerald-800' : 'text-gray-800'}`}>{month === 4 ? '4-6ヶ月目' : `${month}ヶ月目`} マネージャー承認</h3>
                     {!isApproved && <p className="text-sm text-gray-600 mb-4">{isReady ? '全ての項目が完了しました。面談を実施し、承認を行ってください。' : `承認するには、すべてのOJT項目と面談を完了させてください。 (${completedCount}/${totalCount} 完了)`}</p>}
                     {isApproved ? (
-                        <div className="bg-white p-3 rounded border border-emerald-100 text-sm">
-                        <div className="flex gap-2 mb-1"><span className="font-bold text-emerald-700">承認者:</span><span>{approvalData.approverName}</span></div>
-                        <div className="flex gap-2"><span className="font-bold text-emerald-700">承認日:</span><span>{approvalData.approvedDate}</span></div>
-                        </div>
+                        <div className="bg-white p-3 rounded border border-emerald-100 text-sm"><div className="flex gap-2 mb-1"><span className="font-bold text-emerald-700">承認者:</span><span>{approvalData.approverName}</span></div><div className="flex gap-2"><span className="font-bold text-emerald-700">承認日:</span><span>{approvalData.approvedDate}</span></div></div>
                     ) : (
-                        <div className="flex gap-3 items-end">
-                        <div className="flex-grow">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">マネージャー名</label>
-                            <input type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} disabled={!isReady} placeholder="名前を入力" className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100" />
-                        </div>
-                        <button onClick={handleApprove} disabled={!isReady} className={`px-6 py-2 rounded-lg font-bold text-white transition-all ${isReady ? 'bg-indigo-600 hover:bg-indigo-700 shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}>承認する</button>
-                        </div>
+                        <div className="flex gap-3 items-end"><div className="flex-grow"><label className="block text-xs font-bold text-gray-500 mb-1">マネージャー名</label><input type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} disabled={!isReady} placeholder="名前を入力" className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100" /></div><button onClick={handleApprove} disabled={!isReady} className={`px-6 py-2 rounded-lg font-bold text-white transition-all ${isReady ? 'bg-indigo-600 hover:bg-indigo-700 shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}>承認する</button></div>
                     )}
                     </div>
                 </div>
@@ -506,8 +442,7 @@
             const courseInfo = COURSE_GOALS[safeType] || { course: '未設定', goal: '未設定' };
             const items = getTemplate(safeType);
             const completedCount = items.filter(i => employee.progress[i.id]?.checked).length;
-            const totalCount = items.length;
-            const percent = Math.round((completedCount / totalCount) * 100) || 0;
+            const percent = Math.round((completedCount / items.length) * 100) || 0;
             const { current, max } = calculateTotalScore(items, employee.progress);
             const requirementItems = items.filter(i => i.isFacilityRequirement);
             const isFacilityReady = isTypeA && requirementItems.length > 0 && requirementItems.every(i => {
