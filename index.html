@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OJT Manager App</title>
+    <title>OJT Manager (Cloud Sync)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -21,30 +21,18 @@
     </script>
     
     <style>
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .animate-slideDown { animation: slideDown 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        @keyframes slideDown {
-            from { transform: translateY(-10px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slideDown {
-            animation: slideDown 0.3s ease-out;
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
     </style>
 </head>
@@ -52,104 +40,120 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useMemo } from 'react';
+        import React, { useState, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
         import { 
             Users, UserPlus, CheckSquare, BarChart2, Calendar, ChevronRight, 
-            ChevronDown, ChevronUp, AlertCircle, Save, Trash2, TrendingUp, 
-            Award, BookOpen, Briefcase, Cloud, CloudLightning, RefreshCw, 
-            Info, Medal, Star, Tag, HelpCircle, GraduationCap, CheckCircle, 
-            XCircle, Coins, Calculator, Target, MessageCircle, ShieldCheck, 
-            Lock, Loader2, Menu, Activity, ToggleLeft, ToggleRight, TestTube, 
-            HardDrive 
+            ChevronDown, ChevronUp, AlertCircle, RefreshCw, Medal, Star, HelpCircle, 
+            GraduationCap, CheckCircle, XCircle, Calculator, Target, 
+            MessageCircle, ShieldCheck, Lock, Loader2, Activity, TestTube, 
+            Cloud, CloudLightning, Save, Briefcase, Award
         } from 'lucide-react';
         import { 
             Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
-            ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell 
+            ResponsiveContainer, Tooltip 
         } from 'recharts';
 
-        // --- Data Management (LocalStorage Version) ---
+        // ==========================================
+        // 【設定】ここにのウェブアプリURLを貼り付けてください
+        // ==========================================
+        const _API_URL = "ここにのウェブアプリURLを貼り付けてください"; 
+
+        // --- Data Management ( Version) ---
 
         const useDataManager = (isPracticeMode) => {
             const [employees, setEmployees] = useState([]);
             const [isReady, setIsReady] = useState(false);
-            const [saveStatus, setSaveStatus] = useState('saved');
+            const [saveStatus, setSaveStatus] = useState('synced'); // synced, saving, error
+            const [isLoading, setIsLoading] = useState(false);
 
-            // 保存キーの決定（練習モードならキーを変える）
-            const storageKey = isPracticeMode ? 'ojt_app_data_practice' : 'ojt_app_data_prod';
+            //  APIが設定されていない場合のダミー（練習モード用）
+            const isConfigured = _API_URL && _API_URL.startsWith('http');
 
-            // 初期読み込み
-            useEffect(() => {
-                setIsReady(false);
+            // データ読み込み (からGET)
+            const fetchData = async () => {
+                if (!isConfigured) return;
+                setIsLoading(true);
                 try {
-                    const savedData = localStorage.getItem(storageKey);
-                    if (savedData) {
-                        setEmployees(JSON.parse(savedData));
+                    const response = await fetch(_API_URL);
+                    const data = await response.json();
+                    if (Array.isArray(data)) {
+                        setEmployees(data);
                     } else {
                         setEmployees([]);
                     }
+                    setSaveStatus('synced');
                 } catch (e) {
-                    console.error("Failed to load data", e);
-                    setEmployees([]);
+                    console.error("Load Error:", e);
+                    setSaveStatus('error');
+                    alert("データの読み込みに失敗しました。ネット接続を確認してください。");
+                } finally {
+                    setIsLoading(false);
+                    setIsReady(true);
                 }
-                setIsReady(true);
-            }, [storageKey]);
+            };
 
-            // データ保存関数
-            const saveToLocal = (newData) => {
+            // 初回読み込み
+            useEffect(() => {
+                if (isPracticeMode) {
+                    // 練習モードはローカルストレージを使用
+                    const saved = localStorage.getItem('ojt_practice_data');
+                    if (saved) setEmployees(JSON.parse(saved));
+                    setIsReady(true);
+                } else {
+                    // 本番モードはから取得
+                    fetchData();
+                }
+            }, [isPracticeMode]);
+
+            // データ保存 (へPOST)
+            const saveData = async (newData) => {
+                setEmployees(newData); // UIを先に更新（楽観的UI）
+                
+                if (isPracticeMode) {
+                    localStorage.setItem('ojt_practice_data', JSON.stringify(newData));
+                    return;
+                }
+
+                if (!isConfigured) {
+                    alert("のURLが設定されていません。HTMLファイルを編集してください。");
+                    return;
+                }
+
                 setSaveStatus('saving');
                 try {
-                    setEmployees(newData);
-                    localStorage.setItem(storageKey, JSON.stringify(newData));
-                    // 保存完了演出のために少し待つ
-                    setTimeout(() => setSaveStatus('saved'), 500);
+                    // text/plainとして送信（CORS対策）
+                    await fetch(_API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(newData)
+                    });
+                    setSaveStatus('synced');
                 } catch (e) {
-                    console.error("Failed to save data", e);
+                    console.error("Save Error:", e);
                     setSaveStatus('error');
+                    alert("保存に失敗しました！変更がクラウドに反映されていません。再読み込みしてやり直してください。");
                 }
             };
 
             const actions = {
-                addEmployee: async (emp) => {
-                    const newData = [...employees, emp];
-                    saveToLocal(newData);
-                },
-                updateEmployee: async (updatedEmp) => {
-                    const newData = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
-                    saveToLocal(newData);
-                },
-                deleteEmployee: async (empId) => {
-                    const newData = employees.filter(e => e.id !== empId);
-                    saveToLocal(newData);
-                }
+                addEmployee: async (emp) => saveData([...employees, emp]),
+                updateEmployee: async (updatedEmp) => saveData(employees.map(e => e.id === updatedEmp.id ? updatedEmp : e)),
+                deleteEmployee: async (empId) => saveData(employees.filter(e => e.id !== empId)),
+                refreshData: fetchData // 手動更新用
             };
 
-            return { employees, isReady, saveStatus, actions };
+            return { employees, isReady, saveStatus, isLoading, actions, isConfigured };
         };
 
-        // --- Constants ---
+        // --- Constants & Templates (省略せず記述) ---
+        // ※ 前回と同じ定数・テンプレート定義を使用します
 
         const COURSE_GOALS = {
-            'A_Exp': {
-                course: '即戦力・管理者候補コース',
-                goal: '現場のボトルネックを解消し、数値成果（売上・品質）と人材育成を牽引する。'
-            },
-            'A_Inexp': {
-                course: '支援員・職業指導員コース',
-                goal: '3ヶ月で「一人の戦力」となり、6ヶ月で利用者の「労働者性」を高める指導ができる。'
-            },
-            'B_Exp': {
-                course: '環境調整・構造化コース',
-                goal: '3ヶ月で自社ルールに適応し、4ヶ月目以降は工賃向上と構造化（環境設定）を主導する。'
-            },
-            'B_Inexp': {
-                course: '生活支援員コース',
-                goal: '3ヶ月で基本動作と安全管理を徹底し、6ヶ月で利用者の「選択」を支える支援ができる。'
-            },
-            'default': {
-                course: '標準コース',
-                goal: '基本業務の習得と定着を目指す。'
-            }
+            'A_Exp': { course: '即戦力・管理者候補コース', goal: '現場のボトルネックを解消し、数値成果（売上・品質）と人材育成を牽引する。' },
+            'A_Inexp': { course: '支援員・職業指導員コース', goal: '3ヶ月で「一人の戦力」となり、6ヶ月で利用者の「労働者性」を高める指導ができる。' },
+            'B_Exp': { course: '環境調整・構造化コース', goal: '3ヶ月で自社ルールに適応し、4ヶ月目以降は工賃向上と構造化（環境設定）を主導する。' },
+            'B_Inexp': { course: '生活支援員コース', goal: '3ヶ月で基本動作と安全管理を徹底し、6ヶ月で利用者の「選択」を支える支援ができる。' },
+            'default': { course: '標準コース', goal: '基本業務の習得と定着を目指す。' }
         };
 
         const SCORE_DEFINITIONS = {
@@ -170,8 +174,7 @@
             'default': { border: 'border-l-slate-400', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700', icon: 'text-slate-400' }
         };
 
-        // --- Data Templates ---
-
+        // テンプレート（前回と同様）
         const COMMON_ITEMS_MONTH1 = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'ポチパス・ノート・Excel等、事業所指定の方法でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '「事実」と「推測」を分けて記録できる', passingScore: 3 },
@@ -191,7 +194,6 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外、内職等、一連の作業内容を全体的に把握している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const COMMON_ITEMS_A_INEXP = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'マニュアルを見ずに自力でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '誤字脱字なく、「事実（何があったか）」を入力できる(例：〇〇さんが作業を中断した)', passingScore: 3 },
@@ -211,7 +213,6 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外先、内職等、一連の作業内容を理解している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
         const COMMON_ITEMS_A_EXP = [
             { id: 'c_login', category: '利用者管理', subCategory: 'システム', task: 'ログイン', deadline: '1週間以内', month: 1, criteria: 'マニュアルを見ずに自力でログイン・起動ができる', isCheckOnly: true },
             { id: 'c_record', category: '利用者管理', subCategory: '記録', task: '支援記録入力', deadline: '1週間以内', month: 1, criteria: '「事実」と「考察」を分けて記録できる。(なぜ中断したかの背景や、次回への対策案まで記載できているか)', passingScore: 3 },
@@ -231,8 +232,7 @@
             { id: 'c_task_grasp', category: '作業管理', subCategory: '観察', task: '作業内容把握', deadline: '2週間以内', month: 1, criteria: '施設外先、内職等、一連の作業内容を理解している', isFacilityRequirement: true, passingScore: 3 },
             { id: 'interview_1', category: '定期面談', subCategory: '振り返り', task: '1ヶ月目面談', deadline: '1ヶ月後', month: 1, criteria: '1ヶ月の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【A型経験者専用】1ヶ月目定義
+        // その他月のアイテム定義（省略せず）
         const TYPE_A_ITEMS_MONTH1_EXP = [
             { id: 'a_safety_pos', category: '作業管理', subCategory: '移動時の安全', task: 'ポジショニング', deadline: '1ヶ月以内', month: 1, criteria: '特性に合わせた位置」を取れる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_safety_pace', category: '作業管理', subCategory: '移動時の安全', task: 'ペース配分', deadline: '1ヶ月以内', month: 1, criteria: '危険の先回りと安全誘導を取れる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
@@ -244,12 +244,9 @@
             { id: 'a_labor_manage', category: '作業管理', subCategory: '労務', task: '休憩・残業管理', deadline: '1ヶ月以内', month: 1, criteria: '配慮と規律を両立した勤怠指導ができる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_productivity_mind', category: '作業管理', subCategory: '生産性', task: '生産性の意識', deadline: '1ヶ月以内', month: 1, criteria: '主要な受注案件の作業マニュアルを読み、「検品基準（良品・不良品の境界線）」を正しく理解・説明できる。', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
         ];
-
-        // 【A型未経験者専用】1ヶ月目定義 (緊急連絡1なし)
         const TYPE_A_ITEMS_MONTH1_INEXP = [
             { id: 'a_safety_pos', category: '作業管理', subCategory: '移動時の安全', task: 'ポジショニング', deadline: '1ヶ月以内', month: 1, criteria: '車道側・斜め後方の位置をキープ', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_safety_pace', category: '作業管理', subCategory: '移動時の安全', task: 'ペース配分', deadline: '1ヶ月以内', month: 1, criteria: '利用者の歩行ペースに合わせ、急かさない', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
-            // a_emergency1 は除外
             { id: 'a_emergency2', category: '作業管理', subCategory: '緊急時', task: '緊急時の連絡2', deadline: '1ヶ月以内', month: 1, criteria: '緊急連絡先（管理者・サビ管、事業所）が携帯に登録されている', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_emergency3', category: '作業管理', subCategory: '緊急時', task: '緊急時の連絡3', deadline: '1ヶ月以内', month: 1, criteria: '「誰が、どこで、どうなった」を伝えられる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_company_info', category: '作業管理', subCategory: '企業連携', task: '企業情報', deadline: '1ヶ月以内', month: 1, criteria: '取引先の企業名、担当者の名前などの情報を把握できている', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
@@ -257,32 +254,25 @@
             { id: 'a_labor_manage', category: '作業管理', subCategory: '労務', task: '休憩・残業管理', deadline: '1ヶ月以内', month: 1, criteria: '利用者に労基法が適用されることを理解し、1分たりとも休憩を削ったり、無断で残業させたりしない', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
             { id: 'a_productivity_mind', category: '作業管理', subCategory: '生産性', task: '生産性の意識', deadline: '1ヶ月以内', month: 1, criteria: '「訓練だから遅れてもいい」ではなく、顧客との契約(納期・品質)が最優先であることを理解し行動できる', specificType: 'A', isFacilityRequirement: true, passingScore: 3 },
         ];
-
-        // 【新規追加】A型経験者 2ヶ月目
+        // 2-6ヶ月目などの定義も省略せずに記載
         const TYPE_A_ITEMS_MONTH2_EXP = [
             { id: 'a_prod_manage_exp', category: '作業管理', subCategory: '生産管理・配置', task: '進捗管理', deadline: '2ヶ月以内', month: 2, criteria: '担当するラインの目標数に対し、昼休憩の時点で「ペース通りか、遅れているか」を数値（あと何個）で把握できている。', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_exp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '適切なフィードバック', deadline: '2ヶ月以内', month: 2, criteria: '利用者のミスや問題行動に対し、「障害特性によるもの（環境調整が必要）」か「意識の問題(指導が必要)」かを明確に区別し、適切なフィードバック（叱責ではなく工夫、または規律指導）を使い分けられる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】A型未経験者 2ヶ月目
         const TYPE_A_ITEMS_MONTH2_INEXP = [
             { id: 'a_prod_manage_inexp', category: '作業管理', subCategory: '生産管理・配置', task: '品質維持', deadline: '2ヶ月以内', month: 2, criteria: '担当工程において、自身の検品ミス（不良流出）を月間0件にする', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_inexp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '感情コントロール', deadline: '2ヶ月以内', month: 2, criteria: '利用者からの「過度な要求」や「私語」に対し、感情的にならず毅然と切り上げて作業へ促すことができる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_inexp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】A型経験者 3ヶ月目 (ボトルネック解消等)
         const TYPE_A_ITEMS_MONTH3_EXP = [
             { id: 'a_bottleneck_exp_m3', category: '作業管理', subCategory: 'ボトルネック解消', task: '納期遅延ゼロ', deadline: '3ヶ月以内', month: 3, criteria: '【定量】担当ラインの納期遅延・未達を「0回」にする※作業が滞る原因を特定し、工程の修正案を1件以上提出し実行する', specificType: 'A', passingScore: 3 },
             { id: 'a_assessment_exp_m3', category: '利用者理解', subCategory: 'アセスメント', task: '改善指導', deadline: '3ヶ月以内', month: 3, criteria: '利用者の作業課題(遅い、雑)に対し、具体的な改善指導(治具提案や動作指導)ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】A型未経験者 3ヶ月目
         const TYPE_A_ITEMS_MONTH3_INEXP = [
             { id: 'a_speed_area1_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当①', task: '作業スピード', deadline: '3ヶ月以内', month: 3, criteria: '【定量】職員作業（検品・梱包等）において、ベテラン職員の80%以上のスピードでこなせる', specificType: 'A', passingScore: 3 },
             { id: 'a_speed_area2_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当②', task: 'エリア管理', deadline: '3ヶ月以内', month: 3, criteria: '特定の作業エリアを一人で任され、利用者の質問に全て答えられる（保留にしない）', specificType: 'A', passingScore: 3 },
@@ -290,41 +280,31 @@
             { id: 'a_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】A型経験者 4-6ヶ月目
         const TYPE_A_ITEMS_MONTH4_6_EXP = [
             { id: 'a_negotiation_exp_m46', category: '作業管理', subCategory: '対外折衝・営業', task: '対外折衝・営業', deadline: '4-6ヶ月', month: 4, criteria: '企業担当者との納期調整、不良品発生時の謝罪・対策報告を単独で完結できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_exp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '「業務効率」と「障害特性」のバランスを見極め、特定の利用者がミスなく働けるための具体的配慮（ツール導入やルール変更）を1件以上実現する', specificType: 'A', passingScore: 3 },
             { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
-        // 【新規追加】A型未経験者 4-6ヶ月目
         const TYPE_A_ITEMS_MONTH4_6_INEXP = [
             { id: 'a_goal_awareness_inexp_m46', category: '作業管理', subCategory: '目標意識', task: '目標意識', deadline: '4-6ヶ月', month: 4, criteria: '「今日は〇個作る」という目標を利用者に共有し、進捗管理の声掛け（ペース配分）ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_rule_guidance_inexp_m46', category: '作業管理', subCategory: 'ルールの指導', task: 'ルールの指導', deadline: '4-6ヶ月', month: 4, criteria: '利用者の身だしなみ違反やルール違反に対し、見て見ぬふりをせずその場で注意・指導できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_inexp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '担当利用者について「できないこと」だけでなく「得意な作業・集中できる時間帯」等のポジティブな情報を発見し、日報や会議で共有できる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
+            { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
-        // 【新規追加】B型経験者 2ヶ月目
         const TYPE_B_ITEMS_MONTH2_EXP = [
             { id: 'b_behavior_exp_m2', category: '利用者理解', subCategory: '行動障害/不穏対応', task: '不穏・パニック対応', deadline: '2ヶ月以内', month: 2, criteria: '不穏・パニックになりそうな利用者に対し、予兆を察知してクールダウン等の予防介入ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_cut_exp_m2', category: '作業管理', subCategory: '作業切り出し', task: '工程考案・導入', deadline: '2ヶ月以内', month: 2, criteria: '重度者、普段参加できていないでも利用者も参加できる新しい工程等を考案し、現場に導入する', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_exp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'B', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】B型未経験者 2ヶ月目
         const TYPE_B_ITEMS_MONTH2_INEXP = [
             { id: 'b_trust_inexp_m2', category: '利用者理解', subCategory: '信頼関係・受容', task: '受容的対応', deadline: '2ヶ月以内', month: 2, criteria: '作業拒否や離席に対し、感情的にならず「待つ」「寄り添う」対応ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_rule_inexp_m2', category: '作業管理', subCategory: '工賃規定の理解', task: '工賃ルール説明', deadline: '2ヶ月以内', month: 2, criteria: '時給制ではなく、成果や通所日数で工賃が決まるルールを正しく理解し、利用者に聞かれたら答えられる', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_inexp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'B', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】B型経験者 3ヶ月目
         const TYPE_B_ITEMS_MONTH3_EXP = [
             { id: 'b_structure_exp_m3', category: '利用者管理', subCategory: '構造化/環境設定', task: 'リスク低減', deadline: '3ヶ月以内', month: 3, criteria: '担当エリアのヒヤリハット・トラブル件数を前月比で減少させる', specificType: 'B', passingScore: 3 },
             { id: 'b_draft_exp_m3', category: '利用者管理', subCategory: '原案作成', task: '計画案作成', deadline: '3ヶ月以内', month: 3, criteria: '個別支援計画の「短期目標」に対し、現状の課題と次のステップを具体的に言語化し、サビ管に提案できる', specificType: 'B', passingScore: 3 },
@@ -332,8 +312,6 @@
             { id: 'b_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】B型未経験者 3ヶ月目
         const TYPE_B_ITEMS_MONTH3_INEXP = [
             { id: 'b_group_grasp_inexp_m3', category: '利用者管理', subCategory: '集団の把握', task: '見守り', deadline: '3ヶ月以内', month: 3, criteria: '担当エリア（利用者5〜10名程度）を一人で見守り、事故・トラブル件数0件で1日を終えられる', specificType: 'B', passingScore: 3 },
             { id: 'b_record_quality_inexp_m3', category: '利用者管理', subCategory: '記録の質', task: '事実記録', deadline: '3ヶ月以内', month: 3, criteria: '日報やケース記録において、「推測」ではなく「事実（5W1H）」に基づいた記録が書ける', specificType: 'B', passingScore: 3 },
@@ -341,16 +319,12 @@
             { id: 'b_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点', specificType: 'B', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
-
-        // 【新規追加】B型経験者 4-6ヶ月目
         const TYPE_B_ITEMS_MONTH4_6_EXP = [
             { id: 'b_wage_improve_exp_m46', category: '作業管理', subCategory: '工賃向上', task: '工賃向上施策', deadline: '4-6ヶ月', month: 4, criteria: '【定量】担当利用者の平均工賃（または作業参加時間）を向上させる施策を実行する', specificType: 'B', passingScore: 3 },
             { id: 'b_decision_exp_m46', category: '利用者理解', subCategory: '意思決定支援', task: 'ニーズ引き出し', deadline: '4-6ヶ月', month: 4, criteria: '本人の言葉にならないニーズ（本当はどうしたいか）を対話や観察から引き出し、本人の希望に基づいた新たな目標（やりたい作業や生活の夢）を1つ以上設定する', specificType: 'B', passingScore: 3 },
             { id: 'b_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
-
-        // 【新規追加】B型未経験者 4-6ヶ月目
         const TYPE_B_ITEMS_MONTH4_6_INEXP = [
             { id: 'b_choice1_inexp_m46', category: '利用者理解', subCategory: '選択の機会①', task: '自己選択支援', deadline: '4-6ヶ月', month: 4, criteria: '「やりなさい」ではなく「AとBどちらをやりますか？」といった自己選択を促す支援ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_choice2_inexp_m46', category: '利用者理解', subCategory: '選択の機会②', task: '未然報告', deadline: '4-6ヶ月', month: 4, criteria: '利用者の「小さな変化（体調・気分）」を朝の段階で察知し、未然にサビ管へ報告・相談できる', specificType: 'B', passingScore: 3 },
@@ -359,38 +333,23 @@
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
 
-        // Combine helper
         const getTemplate = (type) => {
             let items;
-            // デフォルトはA型未経験として扱う（エラー回避）
             const safeType = type || 'A_Inexp';
             
-            if (safeType === 'A_Inexp') {
-                items = [...COMMON_ITEMS_A_INEXP];
-            } else if (safeType === 'A_Exp') {
-                items = [...COMMON_ITEMS_A_EXP];
-            } else {
-                items = [...COMMON_ITEMS_MONTH1];
-            }
+            if (safeType === 'A_Inexp') { items = [...COMMON_ITEMS_A_INEXP]; } 
+            else if (safeType === 'A_Exp') { items = [...COMMON_ITEMS_A_EXP]; } 
+            else { items = [...COMMON_ITEMS_MONTH1]; }
             
             if (safeType.startsWith('A')) {
-                if (safeType === 'A_Inexp') {
-                items = [...items, ...TYPE_A_ITEMS_MONTH1_INEXP, ...TYPE_A_ITEMS_MONTH2_INEXP, ...TYPE_A_ITEMS_MONTH3_INEXP, ...TYPE_A_ITEMS_MONTH4_6_INEXP];
-                } else {
-                items = [...items, ...TYPE_A_ITEMS_MONTH1_EXP, ...TYPE_A_ITEMS_MONTH2_EXP, ...TYPE_A_ITEMS_MONTH3_EXP, ...TYPE_A_ITEMS_MONTH4_6_EXP];
-                }
+                if (safeType === 'A_Inexp') { items = [...items, ...TYPE_A_ITEMS_MONTH1_INEXP, ...TYPE_A_ITEMS_MONTH2_INEXP, ...TYPE_A_ITEMS_MONTH3_INEXP, ...TYPE_A_ITEMS_MONTH4_6_INEXP]; } 
+                else { items = [...items, ...TYPE_A_ITEMS_MONTH1_EXP, ...TYPE_A_ITEMS_MONTH2_EXP, ...TYPE_A_ITEMS_MONTH3_EXP, ...TYPE_A_ITEMS_MONTH4_6_EXP]; }
             } else {
-                // B型
-                if (safeType === 'B_Exp') {
-                    items = [...items, ...TYPE_B_ITEMS_MONTH2_EXP, ...TYPE_B_ITEMS_MONTH3_EXP, ...TYPE_B_ITEMS_MONTH4_6_EXP];
-                } else {
-                    // B型未経験者
-                    items = [...items, ...TYPE_B_ITEMS_MONTH2_INEXP, ...TYPE_B_ITEMS_MONTH3_INEXP, ...TYPE_B_ITEMS_MONTH4_6_INEXP]; 
-                }
+                if (safeType === 'B_Exp') { items = [...items, ...TYPE_B_ITEMS_MONTH2_EXP, ...TYPE_B_ITEMS_MONTH3_EXP, ...TYPE_B_ITEMS_MONTH4_6_EXP]; } 
+                else { items = [...items, ...TYPE_B_ITEMS_MONTH2_INEXP, ...TYPE_B_ITEMS_MONTH3_INEXP, ...TYPE_B_ITEMS_MONTH4_6_INEXP]; }
             }
 
             const categoryOrder = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '工賃管理', '事業部研修', '定期面談'];
-            
             return items.sort((a, b) => {
                 if (a.month !== b.month) return a.month - b.month;
                 const catDiff = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
@@ -399,64 +358,44 @@
             });
         };
 
-        // ヘルパー関数: 合計スコア計算（1-5点評価のみ対象）
         const calculateTotalScore = (items, progress) => {
             let current = 0;
             let max = 0;
-
             if (!items || !progress) return { current: 0, max: 0 };
-
             items.forEach(item => {
-                // 研修項目(passingScore > 5)は除外
                 if (item.passingScore && item.passingScore > 5) return;
-                if (item.category === '事業部研修') return;
-                if (item.category === '定期面談') return; // 面談も除外
-                if (item.isCheckOnly) return; // チェックのみも除外
-
+                if (item.category === '事業部研修' || item.category === '定期面談' || item.isCheckOnly) return;
                 max += 5;
                 current += (progress[item.id]?.score || 0);
             });
-
             return { current, max };
         };
 
-        // 面談未実施アラート
         const checkInterviewAlert = (employee) => {
             if (!employee.joinDate) return false;
-            
             const joinDate = new Date(employee.joinDate);
             const today = new Date();
             const diffTime = Math.abs(today.getTime() - joinDate.getTime());
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays >= 30 && !employee.progress['interview_1']?.checked) {
-                return true;
-            }
+            if (diffDays >= 30 && !employee.progress['interview_1']?.checked) return true;
             return false;
         };
 
         // --- Sub Components ---
+        // 前回のコンポーネントと同じですが、省略せずに記述
 
         const RadarSkillChart = ({ items, progress }) => {
             const categories = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '事業部研修'];
-            
             const data = categories.map(cat => {
                 const catItems = items.filter(i => i.category === cat);
                 if (catItems.length === 0) return { subject: cat, A: 0, fullMark: 5 };
-                
-                // スコア計算：事業部研修の場合は100点満点を5点満点に正規化（20で割る）
                 const totalScore = catItems.reduce((acc, item) => {
-                let s = progress[item.id]?.score || 0;
-                if (item.category === '事業部研修') s = s / 20; 
-                return acc + s;
+                    let s = progress[item.id]?.score || 0;
+                    if (item.category === '事業部研修') s = s / 20; 
+                    return acc + s;
                 }, 0);
                 const avg = totalScore / catItems.length;
-                
-                return {
-                subject: cat,
-                A: avg,
-                fullMark: 5,
-                };
+                return { subject: cat, A: avg, fullMark: 5 };
             });
 
             return (
@@ -464,19 +403,9 @@
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data}>
                     <PolarGrid stroke="#e5e7eb" />
-                    <PolarAngleAxis 
-                        dataKey="subject" 
-                        tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 'bold' }} 
-                    />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 'bold' }} />
                     <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                    <Radar
-                        name="Skill Level"
-                        dataKey="A"
-                        stroke="#6366f1"
-                        strokeWidth={3}
-                        fill="#818cf8"
-                        fillOpacity={0.5}
-                    />
+                    <Radar name="Skill Level" dataKey="A" stroke="#6366f1" strokeWidth={3} fill="#818cf8" fillOpacity={0.5} />
                     <Tooltip />
                     </RadarChart>
                 </ResponsiveContainer>
@@ -486,7 +415,6 @@
 
         const FacilityStatusPanel = ({ items, progress, type }) => {
             if (!type || !type.startsWith('A')) return null;
-
             const requirementItems = items.filter(i => i.isFacilityRequirement);
             const totalReq = requirementItems.length;
             const passedReq = requirementItems.filter(i => {
@@ -494,84 +422,46 @@
                 if (i.isCheckOnly) return p?.checked;
                 return p?.checked && (p?.score >= 3);
             }).length;
-
             const isCompleted = totalReq > 0 && passedReq === totalReq;
             const percent = totalReq > 0 ? Math.round((passedReq / totalReq) * 100) : 0;
 
             return (
                 <div className={`mt-6 rounded-xl border p-4 shadow-sm transition-all duration-500 ${isCompleted ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-2 mb-3">
-                    {isCompleted ? (
-                    <div className="p-2 bg-amber-100 text-amber-600 rounded-full">
-                        <Medal size={20} />
-                    </div>
-                    ) : (
-                    <div className="p-2 bg-gray-100 text-gray-500 rounded-full">
-                        <Briefcase size={20} />
-                    </div>
-                    )}
+                    {isCompleted ? <div className="p-2 bg-amber-100 text-amber-600 rounded-full"><Medal size={20} /></div> : <div className="p-2 bg-gray-100 text-gray-500 rounded-full"><Briefcase size={20} /></div>}
                     <div>
-                    <h4 className={`font-bold text-sm ${isCompleted ? 'text-amber-800' : 'text-gray-700'}`}>
-                        施設外就労チャレンジ
-                    </h4>
-                    <p className="text-xs text-gray-500">
-                        {isCompleted ? '1人で任せてもOK！' : '1人立ち要件の進捗'}
-                    </p>
+                    <h4 className={`font-bold text-sm ${isCompleted ? 'text-amber-800' : 'text-gray-700'}`}>施設外就労チャレンジ</h4>
+                    <p className="text-xs text-gray-500">{isCompleted ? '1人で任せてもOK！' : '1人立ち要件の進捗'}</p>
                     </div>
                 </div>
-
                 <div className="mb-2 flex justify-between items-end">
                     <span className="text-2xl font-bold text-gray-800">{passedReq}<span className="text-sm text-gray-400 font-normal">/{totalReq}</span></span>
                     <span className="text-xs font-bold text-gray-500">{percent}%</span>
                 </div>
-
                 <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
-                    <div 
-                    className={`h-2 rounded-full transition-all duration-1000 ${isCompleted ? 'bg-amber-500' : 'bg-blue-500'}`} 
-                    style={{ width: `${percent}%` }}
-                    />
+                    <div className={`h-2 rounded-full transition-all duration-1000 ${isCompleted ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${percent}%` }} />
                 </div>
-
-                {isCompleted && (
-                    <div className="text-center py-2 bg-white/60 rounded-lg border border-amber-100 text-amber-700 text-xs font-bold animate-pulse">
-                    🎉 1人立ち認定条件クリア！
-                    </div>
-                )}
-                {!isCompleted && (
-                    <p className="text-[10px] text-gray-400 leading-tight">
-                    対象項目をチェック済み＆評価3点以上にするとクリアです。
-                    </p>
-                )}
+                {isCompleted && <div className="text-center py-2 bg-white/60 rounded-lg border border-amber-100 text-amber-700 text-xs font-bold animate-pulse">🎉 1人立ち認定条件クリア！</div>}
+                {!isCompleted && <p className="text-[10px] text-gray-400 leading-tight">対象項目をチェック済み＆評価3点以上にするとクリアです。</p>}
                 </div>
             );
         };
 
         const ManagerApprovalPanel = ({ month, items, progress, approvalData, onApprove }) => {
-            const currentMonthItems = items.filter(i => 
-                month === 4 ? i.month >= 4 : i.month === month
-            );
-
+            const currentMonthItems = items.filter(i => month === 4 ? i.month >= 4 : i.month === month);
             const completedCount = currentMonthItems.filter(i => {
                 const p = progress[i.id];
-                if (!p) return false;
-                if (!p.checked) return false;
-                if (i.passingScore) {
-                if (p.score < i.passingScore) return false;
-                }
+                if (!p || !p.checked) return false;
+                if (i.passingScore && p.score < i.passingScore) return false;
                 return true;
             }).length;
-
             const totalCount = currentMonthItems.length;
             const isReady = totalCount > 0 && completedCount === totalCount;
             const isApproved = !!approvalData?.approved;
-
             const [managerName, setManagerName] = useState(approvalData?.approverName || '');
 
             const handleApprove = () => {
-                if (!managerName) {
-                alert('マネージャー名を入力してください');
-                return;
-                }
+                if (!managerName) { alert('マネージャー名を入力してください'); return; }
                 onApprove(managerName);
             };
 
@@ -581,51 +471,21 @@
                     <div className={`p-3 rounded-full ${isApproved ? 'bg-emerald-100 text-emerald-600' : isReady ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-400'}`}>
                     {isApproved ? <ShieldCheck size={24} /> : isReady ? <Target size={24} /> : <Lock size={24} />}
                     </div>
-                    
                     <div className="flex-grow">
-                    <h3 className={`text-lg font-bold mb-1 ${isApproved ? 'text-emerald-800' : 'text-gray-800'}`}>
-                        {month === 4 ? '4-6ヶ月目' : `${month}ヶ月目`} マネージャー承認
-                    </h3>
-                    
-                    {!isApproved && (
-                        <p className="text-sm text-gray-600 mb-4">
-                        {isReady 
-                            ? '全ての項目が完了しました。面談を実施し、承認を行ってください。' 
-                            : `承認するには、すべてのOJT項目と面談を完了させてください。 (${completedCount}/${totalCount} 完了)`}
-                        </p>
-                    )}
-
+                    <h3 className={`text-lg font-bold mb-1 ${isApproved ? 'text-emerald-800' : 'text-gray-800'}`}>{month === 4 ? '4-6ヶ月目' : `${month}ヶ月目`} マネージャー承認</h3>
+                    {!isApproved && <p className="text-sm text-gray-600 mb-4">{isReady ? '全ての項目が完了しました。面談を実施し、承認を行ってください。' : `承認するには、すべてのOJT項目と面談を完了させてください。 (${completedCount}/${totalCount} 完了)`}</p>}
                     {isApproved ? (
                         <div className="bg-white p-3 rounded border border-emerald-100 text-sm">
-                        <div className="flex gap-2 mb-1">
-                            <span className="font-bold text-emerald-700">承認者:</span>
-                            <span>{approvalData.approverName}</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <span className="font-bold text-emerald-700">承認日:</span>
-                            <span>{approvalData.approvedDate}</span>
-                        </div>
+                        <div className="flex gap-2 mb-1"><span className="font-bold text-emerald-700">承認者:</span><span>{approvalData.approverName}</span></div>
+                        <div className="flex gap-2"><span className="font-bold text-emerald-700">承認日:</span><span>{approvalData.approvedDate}</span></div>
                         </div>
                     ) : (
                         <div className="flex gap-3 items-end">
                         <div className="flex-grow">
                             <label className="block text-xs font-bold text-gray-500 mb-1">マネージャー名</label>
-                            <input 
-                            type="text" 
-                            value={managerName}
-                            onChange={(e) => setManagerName(e.target.value)}
-                            disabled={!isReady}
-                            placeholder="名前を入力"
-                            className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100"
-                            />
+                            <input type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} disabled={!isReady} placeholder="名前を入力" className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100" />
                         </div>
-                        <button 
-                            onClick={handleApprove}
-                            disabled={!isReady}
-                            className={`px-6 py-2 rounded-lg font-bold text-white transition-all ${isReady ? 'bg-indigo-600 hover:bg-indigo-700 shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}
-                        >
-                            承認する
-                        </button>
+                        <button onClick={handleApprove} disabled={!isReady} className={`px-6 py-2 rounded-lg font-bold text-white transition-all ${isReady ? 'bg-indigo-600 hover:bg-indigo-700 shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}>承認する</button>
                         </div>
                     )}
                     </div>
@@ -637,145 +497,63 @@
         const UserCard = ({ employee, onClick, onDelete }) => {
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
             const [showGoal, setShowGoal] = useState(false);
-            
             const safeType = employee.type || 'A_Inexp';
             const isTypeA = safeType.startsWith('A');
-            
-            const typeLabels = {
-                'A_Exp': 'A型 経験者',
-                'A_Inexp': 'A型 未経験者',
-                'B_Exp': 'B型 経験者',
-                'B_Inexp': 'B型 未経験者',
-            };
+            const typeLabels = { 'A_Exp': 'A型 経験者', 'A_Inexp': 'A型 未経験者', 'B_Exp': 'B型 経験者', 'B_Inexp': 'B型 未経験者' };
             const typeLabel = typeLabels[safeType] || '未設定';
-
             const courseInfo = COURSE_GOALS[safeType] || { course: '未設定', goal: '未設定' };
             const items = getTemplate(safeType);
             const completedCount = items.filter(i => employee.progress[i.id]?.checked).length;
             const totalCount = items.length;
             const percent = Math.round((completedCount / totalCount) * 100) || 0;
-            
             const { current, max } = calculateTotalScore(items, employee.progress);
-
             const requirementItems = items.filter(i => i.isFacilityRequirement);
             const isFacilityReady = isTypeA && requirementItems.length > 0 && requirementItems.every(i => {
                 const p = employee.progress[i.id];
                 if (i.isCheckOnly) return p?.checked;
                 return p?.checked && (p?.score >= 3);
             });
-
             const hasInterviewAlert = checkInterviewAlert(employee);
 
             return (
-                <div 
-                onClick={onClick}
-                className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border ${hasInterviewAlert ? 'border-red-400 ring-2 ring-red-100' : isFacilityReady ? 'border-amber-200 ring-2 ring-amber-100' : 'border-gray-100'} bg-white p-5 flex flex-col gap-4`}
-                >
+                <div onClick={onClick} className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border ${hasInterviewAlert ? 'border-red-400 ring-2 ring-red-100' : isFacilityReady ? 'border-amber-200 ring-2 ring-amber-100' : 'border-gray-100'} bg-white p-5 flex flex-col gap-4`}>
                 <div className={`absolute top-0 left-0 w-2 h-full ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                
                 <div className="flex justify-between items-start pl-4">
                     <div className="flex-grow">
                     <div className="flex gap-2 mb-2 flex-wrap">
-                        <span className={`inline-block px-2 py-1 rounded-md text-xs font-bold ${isTypeA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                        {typeLabel}
-                        </span>
-                        {isFacilityReady && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
-                            <Medal size={12} /> 施設外OK
-                        </span>
-                        )}
-                        {hasInterviewAlert && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse">
-                            <AlertCircle size={12} /> 面談未実施
-                        </span>
-                        )}
+                        <span className={`inline-block px-2 py-1 rounded-md text-xs font-bold ${isTypeA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{typeLabel}</span>
+                        {isFacilityReady && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200"><Medal size={12} /> 施設外OK</span>}
+                        {hasInterviewAlert && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse"><AlertCircle size={12} /> 面談未実施</span>}
                     </div>
                     <h3 className="text-xl font-bold text-gray-800">{employee.name}</h3>
-                    <p className="text-sm text-gray-500 flex items-center gap-1 mb-2">
-                        <Calendar size={14} /> 入社: {employee.joinDate}
-                    </p>
-
+                    <p className="text-sm text-gray-500 flex items-center gap-1 mb-2"><Calendar size={14} /> 入社: {employee.joinDate}</p>
                     <div className="mt-1 mb-2">
-                        <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowGoal(!showGoal);
-                        }}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 w-full text-left"
-                        >
-                        <Target size={12} />
-                        <span className="truncate">{courseInfo.course}</span>
-                        <ChevronDown size={12} className={`ml-auto transition-transform ${showGoal ? 'rotate-180' : ''}`} />
+                        <button onClick={(e) => { e.stopPropagation(); setShowGoal(!showGoal); }} className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 w-full text-left">
+                        <Target size={12} /><span className="truncate">{courseInfo.course}</span><ChevronDown size={12} className={`ml-auto transition-transform ${showGoal ? 'rotate-180' : ''}`} />
                         </button>
-                        {showGoal && (
-                        <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded text-[11px] text-slate-600 leading-relaxed animate-fadeIn">
-                            <span className="font-bold text-slate-700 block mb-0.5">ゴール:</span>
-                            {courseInfo.goal}
-                        </div>
-                        )}
+                        {showGoal && <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded text-[11px] text-slate-600 leading-relaxed animate-fadeIn"><span className="font-bold text-slate-700 block mb-0.5">ゴール:</span>{courseInfo.goal}</div>}
                     </div>
-
                     <div className="mt-2 flex gap-1">
                         {employee.role && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{employee.role}</span>}
                         {employee.jobType && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{employee.jobType}</span>}
                     </div>
                     </div>
-
                     <div className="flex flex-col items-end gap-2 relative z-20">
                     {showDeleteConfirm ? (
                         <div className="flex items-center gap-1 bg-white p-1 rounded-lg shadow-lg border border-red-100 absolute top-0 right-0 z-50 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-[10px] text-red-500 font-bold mr-1 whitespace-nowrap">削除しますか?</span>
-                        <button
-                            onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDelete(employee.id);
-                            }}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                        >
-                            はい
-                        </button>
-                        <button
-                            onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setShowDeleteConfirm(false);
-                            }}
-                            className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-300"
-                        >
-                            いいえ
-                        </button>
+                        <span className="text-[10px] text-red-500 font-bold mr-1 whitespace-nowrap">削除?</span>
+                        <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(employee.id); }} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">はい</button>
+                        <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowDeleteConfirm(false); }} className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs hover:bg-gray-300">いいえ</button>
                         </div>
                     ) : (
-                        <button 
-                        onClick={(e) => { 
-                            e.stopPropagation(); 
-                            e.preventDefault();
-                            setShowDeleteConfirm(true); 
-                        }}
-                        className="text-gray-300 hover:text-red-400 p-2 transition-colors relative z-20"
-                        >
-                        <Trash2 size={18} />
-                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowDeleteConfirm(true); }} className="text-gray-300 hover:text-red-400 p-2 transition-colors relative z-20"><Trash2 size={18} /></button>
                     )}
                     </div>
                 </div>
-
                 <div className="pl-4 mt-auto">
-                    <div className="flex justify-between text-xs mb-1 text-gray-500">
-                        <span>スコア合計: <span className="font-bold text-gray-700">{current}</span> / {max}</span>
-                    </div>
-
-                    <div className="flex justify-between text-sm mb-1 text-gray-600">
-                    <span>OJT進捗</span>
-                    <span className="font-bold">{percent}%</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                    <div 
-                        className={`h-2.5 rounded-full transition-all duration-1000 ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} 
-                        style={{ width: `${percent}%` }}
-                    />
-                    </div>
+                    <div className="flex justify-between text-xs mb-1 text-gray-500"><span>スコア合計: <span className="font-bold text-gray-700">{current}</span> / {max}</span></div>
+                    <div className="flex justify-between text-sm mb-1 text-gray-600"><span>OJT進捗</span><span className="font-bold">{percent}%</span></div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div className={`h-2.5 rounded-full transition-all duration-1000 ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }} /></div>
                 </div>
                 </div>
             );
@@ -790,39 +568,24 @@
             const handleScore = (val) => {
                 const newData = { ...data, score: val };
                 if (item.passingScore && val >= item.passingScore) {
-                if (isTrainingCategory) {
-                    newData.passStatus = '合格';
-                } else {
-                    newData.checked = true;
-                    if (!newData.completedDate) {
-                    newData.completedDate = new Date().toISOString().split('T')[0];
-                    }
-                }
+                    if (isTrainingCategory) { newData.passStatus = '合格'; } 
+                    else { newData.checked = true; if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0]; }
                 }
                 onChange(newData);
                 if (!expanded && !isTrainingCategory) setExpanded(true); 
             };
-
-            const handlePassStatus = (status) => {
-                onChange({ ...data, passStatus: status });
-            };
-
+            const handlePassStatus = (status) => onChange({ ...data, passStatus: status });
             const handleCheck = () => {
                 const newVal = !data.checked;
                 onChange({ ...data, checked: newVal, completedDate: newVal ? new Date().toISOString().split('T')[0] : '' });
             };
-
-            const handleInterviewName = (name) => {
-                onChange({ ...data, memo: name });
-            };
-
+            const handleInterviewName = (name) => onChange({ ...data, memo: name });
             const getScoreColor = (s) => {
                 if (s >= 4) return 'bg-green-500 text-white border-green-500';
                 if (s >= 3) return 'bg-yellow-400 text-white border-yellow-400';
                 if (s > 0) return 'bg-orange-400 text-white border-orange-400';
                 return 'bg-white text-gray-300 border-gray-200';
             };
-
             const isTypeAItem = item.specificType === 'A';
             const isTypeAUser = userType && userType.startsWith('A');
             const isReq = item.isFacilityRequirement && isTypeAUser;
@@ -831,128 +594,48 @@
             const showTypeALabel = isTypeAItem && item.month === 1;
 
             let containerClasses = `rounded-xl my-4 shadow-sm relative overflow-hidden border transition-all ${catStyle.border} border-l-4 `;
-            
-            if (showTypeALabel) {
-                containerClasses += "border-blue-300 bg-blue-50/40 ";
-            } else if (isReq) {
-                containerClasses += "border-amber-200 bg-amber-50/30 ";
-            } else {
-                containerClasses += "border-gray-200 bg-white hover:shadow-md ";
-            }
-
-            if (isReq && isReqMet) {
-                containerClasses += " ring-1 ring-amber-300 bg-amber-50/80";
-            }
+            if (showTypeALabel) containerClasses += "border-blue-300 bg-blue-50/40 ";
+            else if (isReq) containerClasses += "border-amber-200 bg-amber-50/30 ";
+            else containerClasses += "border-gray-200 bg-white hover:shadow-md ";
+            if (isReq && isReqMet) containerClasses += " ring-1 ring-amber-300 bg-amber-50/80";
 
             return (
                 <div className={containerClasses}>
                 <div className="absolute top-0 right-0 flex">
-                    {isReq && (
-                    <div className={`text-[10px] px-2 py-0.5 font-bold z-10 shadow-sm flex items-center gap-1 ${isReqMet ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                        {isReqMet ? <Star size={10} fill="white" /> : <Star size={10} />}
-                        施設外要件
-                    </div>
-                    )}
-                    {showTypeALabel && (
-                    <div className="bg-blue-500 text-white text-[10px] px-3 py-0.5 rounded-bl-xl font-bold z-10 shadow-sm">
-                        A型専用
-                    </div>
-                    )}
+                    {isReq && <div className={`text-[10px] px-2 py-0.5 font-bold z-10 shadow-sm flex items-center gap-1 ${isReqMet ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{isReqMet ? <Star size={10} fill="white" /> : <Star size={10} />} 施設外要件</div>}
+                    {showTypeALabel && <div className="bg-blue-500 text-white text-[10px] px-3 py-0.5 rounded-bl-xl font-bold z-10 shadow-sm">A型専用</div>}
                 </div>
-
                 <div className="p-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
                     {isInterviewItem ? (
-                    <button 
-                        onClick={handleCheck}
-                        className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-pink-500 border-pink-500 text-white' : 'border-gray-300 text-transparent hover:border-pink-400'}`}
-                    >
-                        <MessageCircle size={18} />
-                    </button>
+                    <button onClick={handleCheck} className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-pink-500 border-pink-500 text-white' : 'border-gray-300 text-transparent hover:border-pink-400'}`}><MessageCircle size={18} /></button>
                     ) : isTrainingCategory ? (
-                    <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center">
-                        <GraduationCap size={24} className="text-emerald-500" />
-                    </div>
+                    <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center"><GraduationCap size={24} className="text-emerald-500" /></div>
                     ) : (
-                    <button 
-                        onClick={handleCheck}
-                        className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-transparent hover:border-indigo-400'}`}
-                    >
-                        <CheckSquare size={18} />
-                    </button>
+                    <button onClick={handleCheck} className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-transparent hover:border-indigo-400'}`}><CheckSquare size={18} /></button>
                     )}
 
                     <div className="flex-grow cursor-pointer min-w-[150px]" onClick={() => setExpanded(!expanded)}>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${catStyle.badgeBg} ${catStyle.badgeText}`}>
-                        {item.category}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.subCategory}</span>
-                    </div>
-                    <h4 className={`font-medium text-sm sm:text-base ${data.checked ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                        {item.task}
-                    </h4>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap"><span className={`text-[10px] px-2 py-0.5 rounded font-bold ${catStyle.badgeBg} ${catStyle.badgeText}`}>{item.category}</span><span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.subCategory}</span></div>
+                    <h4 className={`font-medium text-sm sm:text-base ${data.checked ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{item.task}</h4>
                     </div>
 
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                     {isInterviewItem ? (
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <input 
-                            type="text" 
-                            placeholder="面談者名"
-                            value={data.memo || ''}
-                            onChange={(e) => handleInterviewName(e.target.value)}
-                            className="border rounded px-2 py-2 text-sm w-full sm:w-24"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto"><input type="text" placeholder="面談者名" value={data.memo || ''} onChange={(e) => handleInterviewName(e.target.value)} className="border rounded px-2 py-2 text-sm w-full sm:w-24" onClick={(e) => e.stopPropagation()} /></div>
                     ) : isTrainingCategory ? (
                         <div className="flex items-center gap-2">
-                        <div className="flex items-center border rounded-md bg-white px-2 py-1">
-                            <input 
-                            type="number" 
-                            min="0" 
-                            max="100" 
-                            value={data.score || ''} 
-                            onChange={(e) => handleScore(Number(e.target.value))}
-                            className="w-10 text-center font-bold outline-none text-sm"
-                            placeholder="0"
-                            />
-                            <span className="text-xs text-gray-400">点</span>
-                        </div>
+                        <div className="flex items-center border rounded-md bg-white px-2 py-1"><input type="number" min="0" max="100" value={data.score || ''} onChange={(e) => handleScore(Number(e.target.value))} className="w-10 text-center font-bold outline-none text-sm" placeholder="0" /><span className="text-xs text-gray-400">点</span></div>
                         <div className="flex gap-1">
-                            <button
-                            onClick={() => handlePassStatus('合格')}
-                            className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '合格' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-200'}`}
-                            >
-                            <CheckCircle size={10} /> 合格
-                            </button>
-                            <button
-                            onClick={() => handlePassStatus('不合格')}
-                            className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '不合格' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-400 border-gray-200'}`}
-                            >
-                            <XCircle size={10} /> 不合格
-                            </button>
+                            <button onClick={() => handlePassStatus('合格')} className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '合格' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-200'}`}><CheckCircle size={10} /> 合格</button>
+                            <button onClick={() => handlePassStatus('不合格')} className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '不合格' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-400 border-gray-200'}`}><XCircle size={10} /> 不合格</button>
                         </div>
                         </div>
                     ) : isCheckOnlyItem ? (
                         <div className="text-xs text-gray-400">チェックのみ</div>
                     ) : (
-                        <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                            <button
-                            key={s}
-                            onClick={() => handleScore(s)}
-                            title={SCORE_DEFINITIONS[s]}
-                            className={`w-8 h-8 sm:w-6 sm:h-6 text-xs font-bold rounded-full border transition-all ${data.score === s ? getScoreColor(s) : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}
-                            >
-                            {s}
-                            </button>
-                        ))}
-                        </div>
+                        <div className="flex gap-1">{[1, 2, 3, 4, 5].map((s) => (<button key={s} onClick={() => handleScore(s)} title={SCORE_DEFINITIONS[s]} className={`w-8 h-8 sm:w-6 sm:h-6 text-xs font-bold rounded-full border transition-all ${data.score === s ? getScoreColor(s) : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{s}</button>))}</div>
                     )}
-                    <button onClick={() => setExpanded(!expanded)} className="text-gray-400 hover:text-gray-600 p-1">
-                        {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                    </button>
+                    <button onClick={() => setExpanded(!expanded)} className="text-gray-400 hover:text-gray-600 p-1">{expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</button>
                     </div>
                 </div>
 
@@ -964,72 +647,20 @@
                         <div>
                             <span className="font-bold text-gray-800 block text-xs mb-1">合格基準</span>
                             <p>{item.criteria}</p>
-                            {isTrainingCategory && item.passingScore && (
-                                <p className="mt-1 text-xs text-emerald-600 font-bold">
-                                ※ 合格基準点: {item.passingScore}点以上
-                                </p>
-                            )}
-                            {isReq && (
-                                <p className="mt-1 text-xs text-amber-600 font-bold">
-                                ※ 施設外就労へ1人で任せてもらえるには、チェック{isCheckOnlyItem ? '' : '及び3点以上の評価'}が必要です。
-                                </p>
-                            )}
+                            {isTrainingCategory && item.passingScore && <p className="mt-1 text-xs text-emerald-600 font-bold">※ 合格基準点: {item.passingScore}点以上</p>}
+                            {isReq && <p className="mt-1 text-xs text-amber-600 font-bold">※ 施設外就労へ1人で任せてもらえるには、チェック{isCheckOnlyItem ? '' : '及び3点以上の評価'}が必要です。</p>}
                         </div>
                         </div>
-
                         {!isTrainingCategory && !isInterviewItem && !isCheckOnlyItem && (
                         <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                            <h5 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
-                            <HelpCircle size={12} /> 共通評価基準
-                            </h5>
-                            <div className="space-y-1">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                                <div 
-                                key={s} 
-                                className={`text-[10px] flex gap-2 p-1.5 rounded transition-colors ${
-                                    data.score === s 
-                                    ? 'bg-indigo-100 text-indigo-900 font-bold ring-1 ring-indigo-200' 
-                                    : 'text-slate-400'
-                                }`}
-                                >
-                                <span className={`w-4 h-4 flex items-center justify-center rounded-full text-[9px] flex-shrink-0 ${
-                                    data.score === s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}>
-                                    {s}
-                                </span>
-                                <span>{SCORE_DEFINITIONS[s]}</span>
-                                </div>
-                            ))}
-                            </div>
+                            <h5 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1"><HelpCircle size={12} /> 共通評価基準</h5>
+                            <div className="space-y-1">{[1, 2, 3, 4, 5].map((s) => (<div key={s} className={`text-[10px] flex gap-2 p-1.5 rounded transition-colors ${data.score === s ? 'bg-indigo-100 text-indigo-900 font-bold ring-1 ring-indigo-200' : 'text-slate-400'}`}><span className={`w-4 h-4 flex items-center justify-center rounded-full text-[9px] flex-shrink-0 ${data.score === s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{s}</span><span>{SCORE_DEFINITIONS[s]}</span></div>))}</div>
                         </div>
                         )}
-
-                        <div className="flex gap-2 items-center mb-2">
-                        <AlertCircle className="w-4 h-4 text-orange-500" />
-                        <span className="font-bold text-xs">目安:</span>
-                        <span>{item.deadline}</span>
-                        </div>
+                        <div className="flex gap-2 items-center mb-2"><AlertCircle className="w-4 h-4 text-orange-500" /><span className="font-bold text-xs">目安:</span><span>{item.deadline}</span></div>
                         <div className="mt-3 border-t pt-3">
-                        <label className="block text-xs font-bold mb-1">
-                            {isInterviewItem ? '面談実施日' : '完了日'} & メモ
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <input 
-                            type="date" 
-                            value={data.completedDate}
-                            onChange={(e) => onChange({ ...data, completedDate: e.target.value })}
-                            className="border rounded px-2 py-2 sm:py-1 text-sm w-full sm:w-auto" 
-                            />
-                            {!isInterviewItem && (
-                            <input 
-                                type="text" 
-                                placeholder="メモを入力..."
-                                value={data.memo || ''}
-                                onChange={(e) => onChange({ ...data, memo: e.target.value })}
-                                className="border rounded px-2 py-2 sm:py-1 text-sm flex-grow" 
-                            />
-                            )}
-                        </div>
+                        <label className="block text-xs font-bold mb-1">{isInterviewItem ? '面談実施日' : '完了日'} & メモ</label>
+                        <div className="flex flex-col sm:flex-row gap-2"><input type="date" value={data.completedDate} onChange={(e) => onChange({ ...data, completedDate: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm w-full sm:w-auto" />{!isInterviewItem && <input type="text" placeholder="メモを入力..." value={data.memo || ''} onChange={(e) => onChange({ ...data, memo: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm flex-grow" />}</div>
                         </div>
                     </div>
                     </div>
@@ -1043,37 +674,17 @@
         function OjtApp() {
             const [selectedEmpId, setSelectedEmpId] = useState(null);
             const [isAdding, setIsAdding] = useState(false);
-            const [activeTab, setActiveTab] = useState(1); // 1, 2, 3, 4(4-6)
+            const [activeTab, setActiveTab] = useState(1);
             const [showDetailGoal, setShowDetailGoal] = useState(false);
-            const [showMobileDetail, setShowMobileDetail] = useState(false); // モバイル詳細表示トグル
-            
-            // モード管理: true = 練習モード, false = 本番モード
+            const [showMobileDetail, setShowMobileDetail] = useState(false);
             const [isPracticeMode, setIsPracticeMode] = useState(false);
 
-            // データ管理フックを使用 (LocalStorage版)
-            const { employees: fetchedEmployees, isReady, saveStatus: hookSaveStatus, actions } = useDataManager(isPracticeMode);
-
-            // コンポーネントの状態管理
-            const [employees, setEmployees] = useState([]);
-            const [saveStatus, setSaveStatus] = useState('saved');
-
-            // フックの状態をローカルステートに反映
-            useEffect(() => {
-                setEmployees(fetchedEmployees);
-                setSaveStatus(hookSaveStatus);
-            }, [fetchedEmployees, hookSaveStatus]);
+            //  Data Manager
+            const { employees, isReady, saveStatus, isLoading, actions, isConfigured } = useDataManager(isPracticeMode);
 
             const handleAddEmployee = async (name, type, jobType, role, joinDate) => {
                 if (!name) return;
-                const newEmp = {
-                id: crypto.randomUUID(),
-                name,
-                type,
-                jobType,
-                role,
-                joinDate,
-                progress: {}
-                };
+                const newEmp = { id: crypto.randomUUID(), name, type, jobType, role, joinDate, progress: {} };
                 await actions.addEmployee(newEmp);
                 setIsAdding(false);
                 setSelectedEmpId(newEmp.id);
@@ -1082,16 +693,7 @@
             const handleApprove = async (empId, month, name) => {
                 const emp = employees.find(e => e.id === empId);
                 if (!emp) return;
-
-                const newApprovals = { 
-                ...emp.managerApprovals, 
-                [month]: {
-                    approved: true,
-                    approvedDate: new Date().toISOString().split('T')[0],
-                    approverName: name
-                }
-                };
-
+                const newApprovals = { ...emp.managerApprovals, [month]: { approved: true, approvedDate: new Date().toISOString().split('T')[0], approverName: name } };
                 const updatedEmp = { ...emp, managerApprovals: newApprovals };
                 await actions.updateEmployee(updatedEmp);
             };
@@ -1104,404 +706,167 @@
             const handleUpdateProgress = async (empId, itemId, data) => {
                 const emp = employees.find(e => e.id === empId);
                 if (!emp) return;
-                
                 const newProgress = { ...emp.progress, [itemId]: data };
                 const updatedEmp = { ...emp, progress: newProgress };
                 await actions.updateEmployee(updatedEmp);
             };
 
             const SaveStatusIndicator = () => {
-                if (saveStatus === 'saving') {
-                return (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full transition-all">
-                    <RefreshCw size={14} className="animate-spin" />
-                    保存中...
-                    </div>
-                );
-                }
-                if (saveStatus === 'error') {
-                return (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-full">
-                    <AlertCircle size={14} />
-                    保存エラー
-                    </div>
-                );
-                }
-                return (
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full transition-all">
-                    <HardDrive size={14} />
-                    ブラウザ内保存
-                </div>
-                );
+                if (!isConfigured && !isPracticeMode) return <div className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-full"><AlertCircle size={14} />設定未完了</div>;
+                if (saveStatus === 'saving') return <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full transition-all"><RefreshCw size={14} className="animate-spin" />保存中...</div>;
+                if (saveStatus === 'error') return <div className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-full"><AlertCircle size={14} />保存エラー</div>;
+                return <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full transition-all"><Cloud size={14} />同期済み</div>;
             };
 
-            // 起動時のローディング
-            if (!isReady) {
-                return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                    <div className="flex flex-col items-center gap-3 text-indigo-600">
-                    <Loader2 size={40} className="animate-spin" />
-                    <p className="font-bold text-sm">システムを起動中...</p>
-                    </div>
-                </div>
-                );
-            }
+            if (!isReady) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="flex flex-col items-center gap-3 text-indigo-600"><Loader2 size={40} className="animate-spin" /><p className="font-bold text-sm">システムを起動中...</p></div></div>;
 
-            // Header Logic
             const ModeToggle = () => (
                 <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
-                <button
-                    onClick={() => setIsPracticeMode(false)}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!isPracticeMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                    本番運用
-                </button>
-                <button
-                    onClick={() => setIsPracticeMode(true)}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${isPracticeMode ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                    <TestTube size={12} />
-                    練習モード
-                </button>
+                    <button onClick={() => setIsPracticeMode(false)} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!isPracticeMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>本番運用</button>
+                    <button onClick={() => setIsPracticeMode(true)} className={`px-3 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${isPracticeMode ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}><TestTube size={12} />練習モード</button>
                 </div>
             );
 
+            // --- Dashboard Render ---
             const renderDashboard = () => (
                 <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-                {/* 練習モード警告バー */}
-                {isPracticeMode && (
-                    <div className="mb-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md flex items-center justify-center gap-2 animate-fadeIn">
-                    <TestTube size={20} />
-                    <span className="font-bold text-sm">現在は「練習モード」です。データは本番環境に保存されません。</span>
-                    </div>
+                {isLoading && <div className="loading-overlay"><Loader2 size={48} className="text-indigo-600 animate-spin" /><p className="mt-4 font-bold text-gray-600">クラウドからデータを読み込んでいます...</p></div>}
+
+                {isPracticeMode && <div className="mb-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md flex items-center justify-center gap-2 animate-fadeIn"><TestTube size={20} /><span className="font-bold text-sm">現在は「練習モード」です。データは本番環境に保存されません。</span></div>}
+                
+                {!isConfigured && !isPracticeMode && (
+                   <div className="mb-4 bg-red-100 border border-red-200 text-red-800 px-4 py-4 rounded-lg shadow-sm flex flex-col gap-2">
+                     <div className="flex items-center gap-2 font-bold"><AlertCircle size={20} /> 初期設定が必要です</div>
+                     <p className="text-sm">のウェブアプリURLが設定されていません。HTMLファイルを編集し、<code>const _API_URL = "..."</code> の部分にURLを貼り付けてください。</p>
+                   </div>
                 )}
 
-                <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                <header className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
                     <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 ${isPracticeMode ? 'text-orange-600' : 'text-gray-800'}`}>
-                        <Briefcase className={isPracticeMode ? 'text-orange-500' : 'text-indigo-600'} />
-                        OJTマネージャー
-                        </h1>
-                        <span className={`text-xs px-2 py-0.5 rounded border font-bold whitespace-nowrap ${isPracticeMode ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-indigo-100 text-indigo-700 border-indigo-200'}`}>
-                        {isPracticeMode ? '練習環境' : 'チーム共有版'}
-                        </span>
+                        <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 ${isPracticeMode ? 'text-orange-600' : 'text-gray-800'}`}><Briefcase className={isPracticeMode ? 'text-orange-500' : 'text-indigo-600'} />OJTマネージャー</h1>
+                        <span className={`text-xs px-2 py-0.5 rounded border font-bold whitespace-nowrap ${isPracticeMode ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-indigo-100 text-indigo-700 border-indigo-200'}`}>{isPracticeMode ? '練習環境' : 'クラウド版'}</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
                         <ModeToggle />
                         <div className="h-4 w-px bg-gray-300 hidden sm:block"></div>
                         <SaveStatusIndicator />
                     </div>
                     </div>
-                    <button 
-                    onClick={() => setIsAdding(true)}
-                    className={`${isPracticeMode ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'} text-white px-5 py-2.5 rounded-lg font-medium shadow-lg transition-all flex items-center gap-2 w-full sm:w-auto justify-center`}
-                    >
-                    <UserPlus size={18} />
-                    新規社員登録
-                    </button>
+                    
+                    <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+                        <button onClick={actions.refreshData} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-gray-50 flex items-center gap-2 text-sm">
+                            <RefreshCw size={16} /> 最新に更新
+                        </button>
+                        <button onClick={() => setIsAdding(true)} className={`${isPracticeMode ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'} text-white px-5 py-2 rounded-lg font-medium shadow-lg transition-all flex items-center gap-2`}>
+                            <UserPlus size={18} /> 新規社員登録
+                        </button>
+                    </div>
                 </header>
 
                 {isAdding && (
                     <div className={`mb-8 bg-white p-6 rounded-2xl shadow-lg border animate-slideDown ${isPracticeMode ? 'border-orange-100' : 'border-indigo-100'}`}>
                     <h3 className="text-lg font-bold mb-4 text-gray-700">新規社員登録</h3>
-                    <form 
-                        onSubmit={(e) => {
-                        e.preventDefault();
-                        const form = e.target;
-                        const name = form.elements.namedItem('name').value;
-                        const type = form.elements.namedItem('type').value;
-                        const jobType = form.elements.namedItem('jobType').value;
-                        const role = form.elements.namedItem('role').value;
-                        const joinDate = form.elements.namedItem('joinDate').value;
-                        handleAddEmployee(name, type, jobType, role, joinDate);
-                        }}
-                        className="flex flex-wrap gap-4 items-end"
-                    >
-                        <div className="flex-grow min-w-[200px] w-full sm:w-auto">
-                        <label className="block text-sm font-bold text-gray-600 mb-1">氏名</label>
-                        <input name="name" className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" placeholder="山田 太郎" required />
-                        </div>
-                        
-                        <div className="w-full sm:w-40">
-                        <label className="block text-sm font-bold text-gray-600 mb-1">入社日</label>
-                        <input 
-                            type="date" 
-                            name="joinDate" 
-                            defaultValue={new Date().toISOString().split('T')[0]} 
-                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" 
-                            required 
-                        />
-                        </div>
-
-                        <div className="w-full sm:w-40">
-                        <label className="block text-sm font-bold text-gray-600 mb-1">雇用形態</label>
-                        <select name="jobType" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none">
-                            <option value="社員">社員</option>
-                            <option value="パート">パート</option>
-                        </select>
-                        </div>
-
-                        <div className="w-full sm:w-48">
-                        <label className="block text-sm font-bold text-gray-600 mb-1">職種</label>
-                        <select name="role" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none">
-                            <option value="生活支援員">生活支援員</option>
-                            <option value="職業指導員">職業指導員</option>
-                            <option value="チーフ">チーフ</option>
-                            <option value="サービス管理責任者">サービス管理責任者</option>
-                        </select>
-                        </div>
-
-                        <div className="w-full sm:w-48">
-                        <label className="block text-sm font-bold text-gray-600 mb-1">タイプ</label>
-                        <select name="type" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none">
-                            <option value="A_Exp">A型 経験者</option>
-                            <option value="A_Inexp">A型 未経験者</option>
-                            <option value="B_Exp">B型 経験者</option>
-                            <option value="B_Inexp">B型 未経験者</option>
-                        </select>
-                        </div>
-
-                        <div className="flex gap-2 ml-auto w-full sm:w-auto">
-                        <button type="submit" className={`${isPracticeMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-2 rounded-lg font-medium w-full sm:w-auto`} disabled={saveStatus === 'saving'}>
-                            {saveStatus === 'saving' ? '保存中...' : '保存'}
-                        </button>
-                        <button type="button" onClick={() => setIsAdding(false)} className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 w-full sm:w-auto">キャンセル</button>
-                        </div>
+                    <form onSubmit={(e) => {
+                        e.preventDefault(); const form = e.target;
+                        handleAddEmployee(form.elements.namedItem('name').value, form.elements.namedItem('type').value, form.elements.namedItem('jobType').value, form.elements.namedItem('role').value, form.elements.namedItem('joinDate').value);
+                    }} className="flex flex-wrap gap-4 items-end">
+                        <div className="flex-grow min-w-[200px] w-full sm:w-auto"><label className="block text-sm font-bold text-gray-600 mb-1">氏名</label><input name="name" className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" placeholder="山田 太郎" required /></div>
+                        <div className="w-full sm:w-40"><label className="block text-sm font-bold text-gray-600 mb-1">入社日</label><input type="date" name="joinDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" required /></div>
+                        <div className="w-full sm:w-40"><label className="block text-sm font-bold text-gray-600 mb-1">雇用形態</label><select name="jobType" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="社員">社員</option><option value="パート">パート</option></select></div>
+                        <div className="w-full sm:w-48"><label className="block text-sm font-bold text-gray-600 mb-1">職種</label><select name="role" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="生活支援員">生活支援員</option><option value="職業指導員">職業指導員</option><option value="チーフ">チーフ</option><option value="サービス管理責任者">サービス管理責任者</option></select></div>
+                        <div className="w-full sm:w-48"><label className="block text-sm font-bold text-gray-600 mb-1">タイプ</label><select name="type" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="A_Exp">A型 経験者</option><option value="A_Inexp">A型 未経験者</option><option value="B_Exp">B型 経験者</option><option value="B_Inexp">B型 未経験者</option></select></div>
+                        <div className="flex gap-2 ml-auto w-full sm:w-auto"><button type="submit" className={`${isPracticeMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-2 rounded-lg font-medium w-full sm:w-auto`} disabled={saveStatus === 'saving'}>{saveStatus === 'saving' ? '保存中...' : '保存'}</button><button type="button" onClick={() => setIsAdding(false)} className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 w-full sm:w-auto">キャンセル</button></div>
                     </form>
                     </div>
                 )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {employees.length === 0 && !isAdding && (
                     <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>社員が登録されていません。<br/>右上のボタンから登録してください。</p>
-                        {isPracticeMode && <p className="mt-2 text-orange-500 font-bold">※現在は練習モードです</p>}
+                        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>社員が登録されていません。<br/>右上のボタンから登録してください。</p>
+                        {!isConfigured && <p className="mt-2 text-red-500 text-sm">※のURL設定が完了していません</p>}
                     </div>
                     )}
-                    {employees.map(emp => (
-                    <UserCard 
-                        key={emp.id} 
-                        employee={emp} 
-                        onClick={() => setSelectedEmpId(emp.id)} 
-                        onDelete={(empId) => handleDelete(empId)} 
-                    />
-                    ))}
+                    {employees.map(emp => (<UserCard key={emp.id} employee={emp} onClick={() => setSelectedEmpId(emp.id)} onDelete={(empId) => handleDelete(empId)} />))}
                 </div>
                 </div>
             );
 
+            // --- Detail Render ---
             const renderDetail = () => {
                 const emp = employees.find(e => e.id === selectedEmpId);
-                
-                // データがない場合の安全策
-                if (!emp) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                    <div className="flex flex-col items-center gap-3 text-indigo-600">
-                        <Loader2 size={40} className="animate-spin" />
-                        <p className="font-bold text-sm">データを読み込み中...</p>
-                    </div>
-                    </div>
-                );
-                }
-
-                // 安全なタイプ取得
+                if (!emp) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="flex flex-col items-center gap-3 text-indigo-600"><Loader2 size={40} className="animate-spin" /><p className="font-bold text-sm">データを読み込み中...</p></div></div>;
                 const safeType = emp.type || 'A_Inexp';
                 const items = getTemplate(safeType);
-                
-                const filteredItems = activeTab === 4 
-                ? items.filter(i => i.month >= 4)
-                : items.filter(i => i.month === activeTab);
-
+                const filteredItems = activeTab === 4 ? items.filter(i => i.month >= 4) : items.filter(i => i.month === activeTab);
                 const scoreData = calculateTotalScore(items, emp.progress);
                 const totalCurrent = scoreData?.current || 0;
                 const totalMax = scoreData?.max || 0;
-
                 const totalItems = items.length;
                 const completedItems = items.filter(i => emp.progress[i.id]?.checked).length;
                 const overallScore = items.reduce((acc, i) => acc + (emp.progress[i.id]?.score || 0), 0);
                 const avgScore = completedItems > 0 ? (overallScore / completedItems).toFixed(1) : '-';
-
                 const isTypeA = safeType.startsWith('A');
                 const themeColor = isTypeA ? 'text-blue-600' : 'text-emerald-600';
                 const themeBg = isTypeA ? 'bg-blue-600' : 'bg-emerald-600';
                 const themeLightBg = isTypeA ? 'bg-blue-50' : 'bg-emerald-50';
-
                 const courseInfo = COURSE_GOALS[safeType] || { course: '未設定', goal: '未設定' };
                 const hasInterviewAlert = checkInterviewAlert(emp);
 
                 return (
                 <div className="flex flex-col md:flex-row h-[100dvh] bg-gray-50 overflow-hidden">
-                    {/* Sidebar */}
                     <div className={`w-full md:w-72 lg:w-96 bg-white border-b md:border-r md:border-b-0 border-gray-200 flex flex-col shadow-xl z-20 ${showMobileDetail ? 'h-full md:h-full' : 'h-auto md:h-full'} transition-all duration-300 flex-shrink-0`}>
                     <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-                        {isPracticeMode && (
-                        <div className="mb-4 bg-orange-500 text-white text-xs px-2 py-1 rounded text-center font-bold">
-                            練習モード中
-                        </div>
-                        )}
+                        {isPracticeMode && <div className="mb-4 bg-orange-500 text-white text-xs px-2 py-1 rounded text-center font-bold">練習モード中</div>}
                         <div className="flex justify-between items-start mb-4">
-                        <button onClick={() => setSelectedEmpId(null)} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors">
-                            <ChevronRight className="rotate-180 w-4 h-4 mr-1" />
-                            一覧
-                        </button>
+                        <button onClick={() => setSelectedEmpId(null)} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors"><ChevronRight className="rotate-180 w-4 h-4 mr-1" /> 一覧</button>
                         <div className="flex items-center gap-2">
                             <SaveStatusIndicator />
-                            <button 
-                            className="md:hidden flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors"
-                            onClick={() => setShowMobileDetail(!showMobileDetail)}
-                            >
-                            {showMobileDetail ? <ChevronUp size={16} /> : <BarChart2 size={16} />}
-                            {showMobileDetail ? '閉じる' : '詳細'}
-                            </button>
+                            <button className="md:hidden flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors" onClick={() => setShowMobileDetail(!showMobileDetail)}>{showMobileDetail ? <ChevronUp size={16} /> : <BarChart2 size={16} />}{showMobileDetail ? '閉じる' : '詳細'}</button>
                         </div>
                         </div>
-                        
                         <div className="flex flex-wrap gap-2 mb-2">
-                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${themeLightBg} ${themeColor}`}>
-                            {{'A_Exp': 'A型 経験者', 'A_Inexp': 'A型 未経験者', 'B_Exp': 'B型 経験者', 'B_Inexp': 'B型 未経験者'}[safeType] || '未設定'}
-                        </span>
-                        {hasInterviewAlert && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse">
-                            <AlertCircle size={12} /> 面談未実施
-                            </span>
-                        )}
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${themeLightBg} ${themeColor}`}>{{'A_Exp': 'A型 経験者', 'A_Inexp': 'A型 未経験者', 'B_Exp': 'B型 経験者', 'B_Inexp': 'B型 未経験者'}[safeType] || '未設定'}</span>
+                        {hasInterviewAlert && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse"><AlertCircle size={12} /> 面談未実施</span>}
                         </div>
-                        
                         <h2 className="text-xl lg:text-2xl font-bold text-gray-800 leading-tight">{emp.name}</h2>
-                        <div className="flex justify-between items-center mt-1">
-                        <p className="text-sm text-gray-500 flex items-center gap-1">
-                            ID: {emp.id.substring(0,6)}...
-                        </p>
-                        
-                        <div className="md:hidden flex items-center gap-2">
-                            <div className="text-xs font-bold text-gray-500">進捗: {Math.round(completedItems/totalItems*100)}%</div>
-                            <div className="w-20 bg-gray-100 rounded-full h-2">
-                                <div className={`h-2 rounded-full ${themeBg}`} style={{ width: `${completedItems/totalItems*100}%` }} />
-                            </div>
-                        </div>
-                        </div>
-
+                        <div className="flex justify-between items-center mt-1"><p className="text-sm text-gray-500 flex items-center gap-1">ID: {emp.id.substring(0,6)}...</p><div className="md:hidden flex items-center gap-2"><div className="text-xs font-bold text-gray-500">進捗: {Math.round(completedItems/totalItems*100)}%</div><div className="w-20 bg-gray-100 rounded-full h-2"><div className={`h-2 rounded-full ${themeBg}`} style={{ width: `${completedItems/totalItems*100}%` }} /></div></div></div>
                         <div className={`mt-4 mb-2 ${showMobileDetail ? 'block' : 'hidden md:block'}`}>
-                        <button 
-                            onClick={() => setShowDetailGoal(!showDetailGoal)}
-                            className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-2 py-1.5 rounded-md border border-indigo-100 w-full text-left"
-                        >
-                            <Target size={12} />
-                            <span className="truncate">{courseInfo.course}</span>
-                            <ChevronDown size={12} className={`ml-auto transition-transform ${showDetailGoal ? 'rotate-180' : ''}`} />
-                        </button>
-                        {showDetailGoal && (
-                            <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded text-[11px] text-slate-600 leading-relaxed animate-fadeIn">
-                            <span className="font-bold text-slate-700 block mb-0.5">ゴール:</span>
-                            {courseInfo.goal}
-                            </div>
-                        )}
+                        <button onClick={() => setShowDetailGoal(!showDetailGoal)} className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-2 py-1.5 rounded-md border border-indigo-100 w-full text-left"><Target size={12} /><span className="truncate">{courseInfo.course}</span><ChevronDown size={12} className={`ml-auto transition-transform ${showDetailGoal ? 'rotate-180' : ''}`} /></button>
+                        {showDetailGoal && <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded text-[11px] text-slate-600 leading-relaxed animate-fadeIn"><span className="font-bold text-slate-700 block mb-0.5">ゴール:</span>{courseInfo.goal}</div>}
                         </div>
                     </div>
-
                     <div className={`p-4 md:p-6 flex-grow overflow-y-auto min-h-0 ${showMobileDetail ? 'block' : 'hidden md:block'}`}>
-                        <div className="flex items-center gap-2 mb-4 text-gray-800 font-bold border-b border-gray-100 pb-2">
-                        <Activity size={18} className="text-indigo-500"/>
-                        <h3>詳細データ・分析</h3>
-                        </div>
-
+                        <div className="flex items-center gap-2 mb-4 text-gray-800 font-bold border-b border-gray-100 pb-2"><Activity size={18} className="text-indigo-500"/><h3>詳細データ・分析</h3></div>
                         <FacilityStatusPanel items={items} progress={emp.progress} type={safeType} />
-
                         <div className="mt-6 space-y-4">
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                            <div className="flex justify-between items-end mb-2">
-                            <span className="text-sm text-gray-500">全体進捗</span>
-                            <span className="text-2xl font-bold text-gray-800">{Math.round(completedItems/totalItems*100)}%</span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2">
-                            <div className={`h-2 rounded-full ${themeBg}`} style={{ width: `${completedItems/totalItems*100}%` }} />
-                            </div>
-                            <div className="mt-2 text-xs text-gray-400 text-right">{completedItems} / {totalItems} 項目完了</div>
-                        </div>
-
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
-                            <div className="flex items-center gap-2 mb-1 text-slate-500">
-                            <Calculator size={16} />
-                            <span className="text-xs font-bold">合計得点 (研修除く)</span>
-                            </div>
-                            <div className="text-3xl font-black text-slate-700 flex items-baseline">
-                            {totalCurrent} <span className="text-sm font-normal text-slate-400 ml-1">/ {totalMax}</span>
-                            </div>
-                        </div>
-
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="flex justify-between items-end mb-2"><span className="text-sm text-gray-500">全体進捗</span><span className="text-2xl font-bold text-gray-800">{Math.round(completedItems/totalItems*100)}%</span></div><div className="w-full bg-gray-100 rounded-full h-2"><div className={`h-2 rounded-full ${themeBg}`} style={{ width: `${completedItems/totalItems*100}%` }} /></div><div className="mt-2 text-xs text-gray-400 text-right">{completedItems} / {totalItems} 項目完了</div></div>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center"><div className="flex items-center gap-2 mb-1 text-slate-500"><Calculator size={16} /><span className="text-xs font-bold">合計得点 (研修除く)</span></div><div className="text-3xl font-black text-slate-700 flex items-baseline">{totalCurrent} <span className="text-sm font-normal text-slate-400 ml-1">/ {totalMax}</span></div></div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                            <span className="block text-xs text-indigo-400 font-bold mb-1">平均スコア</span>
-                            <span className="text-xl font-bold text-indigo-700 flex items-center gap-1">
-                                {avgScore} <span className="text-xs font-normal">/ 5.0</span>
-                            </span>
-                            </div>
-                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
-                            <span className="block text-xs text-orange-400 font-bold mb-1">経過月数</span>
-                            <span className="text-xl font-bold text-orange-700">1<span className="text-xs font-normal">ヶ月目</span></span>
-                            </div>
+                            <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100"><span className="block text-xs text-indigo-400 font-bold mb-1">平均スコア</span><span className="text-xl font-bold text-indigo-700 flex items-center gap-1">{avgScore} <span className="text-xs font-normal">/ 5.0</span></span></div>
+                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-100"><span className="block text-xs text-orange-400 font-bold mb-1">経過月数</span><span className="text-xl font-bold text-orange-700">1<span className="text-xs font-normal">ヶ月目</span></span></div>
                         </div>
                         </div>
-
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-8 mb-4">Skill Overview</h3>
                         <RadarSkillChart items={items} progress={emp.progress} />
-                        
                         <div className="h-8"></div>
                     </div>
                     </div>
-
-                    {/* Main Content Area */}
                     <div className={`flex-grow flex flex-col h-full overflow-hidden ${showMobileDetail ? 'hidden md:flex' : 'flex'}`}>
                     <div className="bg-white border-b border-gray-200 px-4 lg:px-8 flex items-center justify-between shadow-sm lg:shadow-none z-10 flex-shrink-0">
-                        <div className="flex gap-4 lg:gap-8 overflow-x-auto no-scrollbar w-full lg:w-auto">
-                        {[1, 2, 3, 4].map(m => (
-                            <button
-                            key={m}
-                            onClick={() => setActiveTab(m)}
-                            className={`py-3 md:py-4 lg:py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${activeTab === m ? `${themeColor} ${isTypeA ? 'border-blue-600' : 'border-emerald-600'}` : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                            >
-                            {m === 4 ? '4-6ヶ月目' : `${m}ヶ月目`}
-                            </button>
-                        ))}
-                        </div>
-                        <div className="hidden md:flex items-center gap-2 text-gray-400 text-sm">
-                        <CheckSquare size={16} />
-                        <span>{filteredItems.length} 項目</span>
-                        </div>
+                        <div className="flex gap-4 lg:gap-8 overflow-x-auto no-scrollbar w-full lg:w-auto">{[1, 2, 3, 4].map(m => (<button key={m} onClick={() => setActiveTab(m)} className={`py-3 md:py-4 lg:py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${activeTab === m ? `${themeColor} ${isTypeA ? 'border-blue-600' : 'border-emerald-600'}` : 'text-gray-400 border-transparent hover:text-gray-600'}`}>{m === 4 ? '4-6ヶ月目' : `${m}ヶ月目`}</button>))}</div>
+                        <div className="hidden md:flex items-center gap-2 text-gray-400 text-sm"><CheckSquare size={16} /><span>{filteredItems.length} 項目</span></div>
                     </div>
-
                     <div className="flex-grow overflow-y-auto p-4 lg:p-8 bg-gray-50">
                         <div className="max-w-3xl mx-auto pb-20 lg:pb-0">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             {filteredItems.length === 0 ? (
-                            <div className="p-12 text-center text-gray-400">
-                                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p>この期間のタスクはありません</p>
-                            </div>
+                            <div className="p-12 text-center text-gray-400"><BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>この期間のタスクはありません</p></div>
                             ) : (
-                            filteredItems.map(item => (
-                                <ChecklistItemRow
-                                key={item.id}
-                                item={item}
-                                data={emp.progress[item.id] || { score: 0, checked: false, completedDate: '', memo: '' }}
-                                onChange={(data) => handleUpdateProgress(emp.id, item.id, data)}
-                                userType={safeType}
-                                />
-                            ))
+                            filteredItems.map(item => (<ChecklistItemRow key={item.id} item={item} data={emp.progress[item.id] || { score: 0, checked: false, completedDate: '', memo: '' }} onChange={(data) => handleUpdateProgress(emp.id, item.id, data)} userType={safeType} />))
                             )}
                         </div>
-                        
-                        <ManagerApprovalPanel 
-                            month={activeTab} 
-                            items={items} 
-                            progress={emp.progress} 
-                            approvalData={emp.managerApprovals?.[activeTab]} 
-                            onApprove={(name) => handleApprove(emp.id, activeTab, name)} 
-                        />
-                        
+                        <ManagerApprovalPanel month={activeTab} items={items} progress={emp.progress} approvalData={emp.managerApprovals?.[activeTab]} onApprove={(name) => handleApprove(emp.id, activeTab, name)} />
                         </div>
                     </div>
                     </div>
