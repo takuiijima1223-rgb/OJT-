@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -261,7 +261,7 @@
         const TYPE_A_ITEMS_MONTH4_6_EXP = [
             { id: 'a_negotiation_exp_m46', category: '作業管理', subCategory: '対外折衝・営業', task: '対外折衝・営業', deadline: '4-6ヶ月', month: 4, criteria: '企業担当者との納期調整、不良品発生時の謝罪・対策報告を単独で完結できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_exp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '「業務効率」と「障害特性」のバランスを見極め、特定の利用者がミスなく働けるための具体的配慮（ツール導入やルール変更）を1件以上実現する', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
+            { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH4_6_INEXP = [
@@ -616,7 +616,7 @@
                     ) : isCheckOnlyItem ? (
                         <div className="text-xs text-gray-400">チェックのみ</div>
                     ) : (
-                        <div className="flex gap-1">{[1, 2, 3, 4, 5].map((s) => (<button key={s} onClick={() => handleScore(s)} title={SCORE_DEFINITIONS[s]} className={`w-8 h-8 sm:w-6 sm:h-6 text-xs font-bold rounded-full border transition-all ${data.score === s ? getScoreColor(s) : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{s}</button>))}</div>
+                        <div className="flex gap-1">{[1, 2, 3, 4, 5].map((s) => (<button key={s} onClick={() => handleScore(s)} title={SCORE_DEFINITIONS[s]} className={`w-8 h-8 sm:w-6 sm:h-6 text-xs font-bold rounded-full border transition-all ${Number(data.score) === s ? getScoreColor(s) : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{s}</button>))}</div>
                     )}
                     <button onClick={() => setExpanded(!expanded)} className="text-gray-400 hover:text-gray-600 p-1">{expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</button>
                     </div>
@@ -637,7 +637,7 @@
                         {!isTrainingCategory && !isInterviewItem && !isCheckOnlyItem && (
                         <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                             <h5 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1"><HelpCircle size={12} /> 共通評価基準</h5>
-                            <div className="space-y-1">{[1, 2, 3, 4, 5].map((s) => (<div key={s} className={`text-[10px] flex gap-2 p-1.5 rounded transition-colors ${data.score === s ? 'bg-indigo-100 text-indigo-900 font-bold ring-1 ring-indigo-200' : 'text-slate-400'}`}><span className={`w-4 h-4 flex items-center justify-center rounded-full text-[9px] flex-shrink-0 ${data.score === s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{s}</span><span>{SCORE_DEFINITIONS[s]}</span></div>))}</div>
+                            <div className="space-y-1">{[1, 2, 3, 4, 5].map((s) => (<div key={s} className={`text-[10px] flex gap-2 p-1.5 rounded transition-colors ${Number(data.score) === s ? 'bg-indigo-100 text-indigo-900 font-bold ring-1 ring-indigo-200' : 'text-slate-400'}`}><span className={`w-4 h-4 flex items-center justify-center rounded-full text-[9px] flex-shrink-0 ${Number(data.score) === s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{s}</span><span>{SCORE_DEFINITIONS[s]}</span></div>))}</div>
                         </div>
                         )}
                         <div className="flex gap-2 items-center mb-2"><AlertCircle className="w-4 h-4 text-orange-500" /><span className="font-bold text-xs">目安:</span><span>{item.deadline}</span></div>
