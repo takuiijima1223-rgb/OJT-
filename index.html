@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OJT Manager (Complete)</title>
+    <title>OJT Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="importmap">
@@ -37,7 +37,7 @@
             ChevronDown, ChevronUp, AlertCircle, RefreshCw, Medal, Star, HelpCircle, 
             GraduationCap, CheckCircle, XCircle, Calculator, Target, 
             MessageCircle, ShieldCheck, Lock, Loader2, Activity, TestTube, 
-            Cloud, Briefcase, Award, Trash2
+            Cloud, Briefcase, Award, Trash2, BookOpen
         } from 'lucide-react';
         import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -55,7 +55,10 @@
             const isConfigured = GAS_API_URL && GAS_API_URL.startsWith('http');
 
             const fetchData = async () => {
-                if (!isConfigured) return;
+                if (!isConfigured) {
+                    setIsReady(true);
+                    return;
+                }
                 setIsLoading(true);
                 try {
                     const response = await fetch(GAS_API_URL);
@@ -65,6 +68,7 @@
                 } catch (e) {
                     console.error("Load Error:", e);
                     setSaveStatus('error');
+                    // 通信エラー時は練習モードへの誘導などを検討してもよいが、ここではエラーのみ表示
                 } finally {
                     setIsLoading(false);
                     setIsReady(true);
@@ -74,7 +78,16 @@
             useEffect(() => {
                 if (isPracticeMode) {
                     const saved = localStorage.getItem('ojt_practice_data');
-                    if (saved) setEmployees(JSON.parse(saved));
+                    if (saved) {
+                        try {
+                            setEmployees(JSON.parse(saved));
+                        } catch(e) {
+                            console.error("Local storage parse error", e);
+                            setEmployees([]);
+                        }
+                    } else {
+                        setEmployees([]);
+                    }
                     setIsReady(true);
                 } else {
                     fetchData();
@@ -90,6 +103,8 @@
                 if (!isConfigured) return;
                 setSaveStatus('saving');
                 try {
+                    // Note: no-cors mode might be needed depending on GAS settings, but standard POST is better for data integrity if CORS is handled on GAS side.
+                    // For preview stability, we'll try standard fetch.
                     await fetch(GAS_API_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -99,7 +114,7 @@
                 } catch (e) {
                     console.error("Save Error:", e);
                     setSaveStatus('error');
-                    alert("保存エラー: インターネット接続を確認してください");
+                    alert("保存エラー: インターネット接続を確認してください。\n（プレビュー環境ではGASへの接続がブロックされる場合があります。「練習モード」をお試しください。）");
                 }
             };
 
@@ -246,14 +261,14 @@
         const TYPE_A_ITEMS_MONTH4_6_EXP = [
             { id: 'a_negotiation_exp_m46', category: '作業管理', subCategory: '対外折衝・営業', task: '対外折衝・営業', deadline: '4-6ヶ月', month: 4, criteria: '企業担当者との納期調整、不良品発生時の謝罪・対策報告を単独で完結できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_exp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '「業務効率」と「障害特性」のバランスを見極め、特定の利用者がミスなく働けるための具体的配慮（ツール導入やルール変更）を1件以上実現する', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
+            { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH4_6_INEXP = [
             { id: 'a_goal_awareness_inexp_m46', category: '作業管理', subCategory: '目標意識', task: '目標意識', deadline: '4-6ヶ月', month: 4, criteria: '「今日は〇個作る」という目標を利用者に共有し、進捗管理の声掛け（ペース配分）ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_rule_guidance_inexp_m46', category: '作業管理', subCategory: 'ルールの指導', task: 'ルールの指導', deadline: '4-6ヶ月', month: 4, criteria: '利用者の身だしなみ違反やルール違反に対し、見て見ぬふりをせずその場で注意・指導できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_inexp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '担当利用者について「できないこと」だけでなく「得意な作業・集中できる時間帯」等のポジティブな情報を発見し、日報や会議で共有できる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '必要6項目研修', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
+            { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH2_EXP = [
@@ -503,13 +518,43 @@
             const isCheckOnlyItem = item.isCheckOnly;
 
             const handleScore = (val) => {
-                const newData = { ...data, score: val };
-                if (item.passingScore && val >= item.passingScore) {
-                    if (isTrainingCategory) { newData.passStatus = '合格'; } 
-                    else { newData.checked = true; if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0]; }
+                // クリックした点数が現在のスコアと同じなら0（選択解除）にする
+                const newScore = (data.score === val) ? 0 : val;
+                
+                const newData = { ...data, score: newScore };
+                
+                if (newScore === 0) {
+                    // 0点になった場合、完了状態もリセットする
+                    if (isTrainingCategory) {
+                        newData.passStatus = '';
+                    } else {
+                        newData.checked = false;
+                        newData.completedDate = '';
+                    }
+                } else if (item.passingScore && newScore >= item.passingScore) {
+                    // 合格点以上になった場合
+                    if (isTrainingCategory) { 
+                        newData.passStatus = '合格'; 
+                    } else { 
+                        newData.checked = true; 
+                        if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0]; 
+                    }
+                } else if (item.passingScore && newScore < item.passingScore) {
+                    // 合格点未満になった場合、完了状態を解除する（要件によるがリセット挙動が自然）
+                    if (!isTrainingCategory) {
+                         newData.checked = false;
+                         // 日付は残す？消す？ ここでは「クリア」の意図を汲んで消す挙動にする方が安全か。
+                         // いや、3点→2点に修正しただけで日付が消えるのは不便かもしれない。
+                         // しかしcheckedがfalseになるなら未完了扱いなので日付も消えるのがこのアプリの他の挙動と一致する。
+                         // （handleCheckでトグルすると日付消えるため）
+                         // ただし、ユーザーが「点数を修正したいだけ」の可能性もある。
+                         // ここでは「基準を満たさなくなった＝未完了」として扱う。
+                    }
                 }
+
                 onChange(newData);
-                if (!expanded && !isTrainingCategory) setExpanded(true); 
+                // 点数が入った時だけ展開する
+                if (!expanded && !isTrainingCategory && newScore > 0) setExpanded(true); 
             };
             const handlePassStatus = (status) => onChange({ ...data, passStatus: status });
             const handleCheck = () => {
@@ -596,7 +641,17 @@
                         )}
                         <div className="flex gap-2 items-center mb-2"><AlertCircle className="w-4 h-4 text-orange-500" /><span className="font-bold text-xs">目安:</span><span>{item.deadline}</span></div>
                         <div className="mt-3 border-t pt-3">
-                        <label className="block text-xs font-bold mb-1">{isInterviewItem ? '面談実施日' : '完了日'} & メモ</label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold">{isInterviewItem ? '面談実施日' : '完了日'} & メモ</label>
+                            {!isCheckOnlyItem && !isTrainingCategory && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleCheck(); }}
+                                    className={`text-xs px-3 py-1.5 rounded border font-bold transition-all flex items-center gap-1 ${data.checked ? 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50' : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-sm'}`}
+                                >
+                                    {data.checked ? <><XCircle size={12}/> 完了を取り消す</> : <><CheckCircle size={12}/> 完了としてマーク</>}
+                                </button>
+                            )}
+                        </div>
                         <div className="flex flex-col sm:flex-row gap-2"><input type="date" value={data.completedDate} onChange={(e) => onChange({ ...data, completedDate: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm w-full sm:w-auto" />{!isInterviewItem && <input type="text" placeholder="メモを入力..." value={data.memo || ''} onChange={(e) => onChange({ ...data, memo: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm flex-grow" />}</div>
                         </div>
                     </div>
