@@ -4,8 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OJT Manager</title>
+    
+    <!-- 1. ブラウザ互換性のためのポリフィル（Recharts等のクラッシュ防止） -->
+    <script>
+        window.process = { env: { NODE_ENV: 'production' } };
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 修正点: Babelのバージョンを安定版(7.23.6)に固定してエラーを回避 -->
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    
+    <!-- 2. インポートマップ -->
     <script type="importmap">
     {
         "imports": {
@@ -16,6 +26,7 @@
         }
     }
     </script>
+
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -24,14 +35,19 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* エラー表示用のスタイル */
+        .error-container { padding: 2rem; text-align: center; color: #ef4444; background: #fef2f2; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .error-details { margin-top: 1rem; padding: 1rem; background: #fff; border: 1px solid #fca5a5; border-radius: 0.5rem; font-family: monospace; text-align: left; max-width: 800px; overflow-x: auto; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect } from 'react';
+        import React, { useState, useEffect, Component } from 'react';
         import { createRoot } from 'react-dom/client';
+        // Lucideのアイコンはバージョンによってexport名が変わることがあるため、0.263.1で動作確認済みのものを使用
         import { 
             Users, UserPlus, CheckSquare, BarChart2, Calendar, ChevronRight, 
             ChevronDown, ChevronUp, AlertCircle, RefreshCw, Medal, Star, HelpCircle, 
@@ -45,6 +61,44 @@
         // 【設定】ここにGASのウェブアプリURLを貼り付けてください
         // ==========================================
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzDXpTJkbWLwOfMruSE7aJNBeW6N1_8ZG7Q4cnWOBZld_1jYcFt1AiTqcTWsYC1QOZ7Cg/exec"; 
+
+        // --- Error Boundary (これで真っ白画面を防ぎます) ---
+        class ErrorBoundary extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null, errorInfo: null };
+            }
+
+            static getDerivedStateFromError(error) {
+                return { hasError: true };
+            }
+
+            componentDidCatch(error, errorInfo) {
+                this.setState({ error: error, errorInfo: errorInfo });
+                console.error("Uncaught error:", error, errorInfo);
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="error-container">
+                            <AlertCircle size={48} className="mb-4" />
+                            <h1 className="text-2xl font-bold">システムエラーが発生しました</h1>
+                            <p className="mt-2 text-gray-700">予期せぬエラーによりアプリケーションが停止しました。</p>
+                            <p className="mt-1 text-sm text-gray-500">（再読み込みで直る場合があります）</p>
+                            <button onClick={() => window.location.reload()} className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold">
+                                ページを再読み込み
+                            </button>
+                            <details className="error-details">
+                                <summary className="cursor-pointer font-bold mb-2">詳細なエラー情報</summary>
+                                <pre>{this.state.error && this.state.error.toString()}</pre>
+                            </details>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
 
         // --- Data Management (GAS Version) ---
         const useGasDataManager = (isPracticeMode) => {
@@ -68,7 +122,6 @@
                 } catch (e) {
                     console.error("Load Error:", e);
                     setSaveStatus('error');
-                    // 通信エラー時は練習モードへの誘導などを検討してもよいが、ここではエラーのみ表示
                 } finally {
                     setIsLoading(false);
                     setIsReady(true);
@@ -103,8 +156,6 @@
                 if (!isConfigured) return;
                 setSaveStatus('saving');
                 try {
-                    // Note: no-cors mode might be needed depending on GAS settings, but standard POST is better for data integrity if CORS is handled on GAS side.
-                    // For preview stability, we'll try standard fetch.
                     await fetch(GAS_API_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -728,10 +779,10 @@
                 {isPracticeMode && <div className="mb-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md flex items-center justify-center gap-2 animate-fadeIn"><TestTube size={20} /><span className="font-bold text-sm">現在は「練習モード」です。データは本番環境に保存されません。</span></div>}
                 
                 {!isConfigured && !isPracticeMode && (
-                   <div className="mb-4 bg-red-100 border border-red-200 text-red-800 px-4 py-4 rounded-lg shadow-sm flex flex-col gap-2">
-                     <div className="flex items-center gap-2 font-bold"><AlertCircle size={20} /> 初期設定が必要です</div>
-                     <p className="text-sm">GASのウェブアプリURLが設定されていません。HTMLファイルを編集し、<code>const GAS_API_URL = "..."</code> の部分にURLを貼り付けてください。</p>
-                   </div>
+                    <div className="mb-4 bg-red-100 border border-red-200 text-red-800 px-4 py-4 rounded-lg shadow-sm flex flex-col gap-2">
+                      <div className="flex items-center gap-2 font-bold"><AlertCircle size={20} /> 初期設定が必要です</div>
+                      <p className="text-sm">GASのウェブアプリURLが設定されていません。HTMLファイルを編集し、<code>const GAS_API_URL = "..."</code> の部分にURLを貼り付けてください。</p>
+                    </div>
                 )}
 
                 <header className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
@@ -875,7 +926,11 @@
         }
 
         const root = createRoot(document.getElementById('root'));
-        root.render(<OjtApp />);
+        root.render(
+            <ErrorBoundary>
+                <OjtApp />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 </html>
