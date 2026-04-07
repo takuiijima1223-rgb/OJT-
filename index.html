@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -673,7 +673,7 @@
                         <div className="flex gap-2 items-center mb-2"><AlertCircle className="w-4 h-4 text-orange-500" /><span className="font-bold text-xs">目安:</span><span>{item.deadline}</span></div>
                         <div className="mt-3 border-t pt-3">
                         <div className="flex items-center justify-between mb-2">
-                            <label className="block text-xs font-bold">{isInterviewItem ? '面談実施日' : '完了日'} & メモ</label>
+                            <label className="block text-xs font-bold">{isInterviewItem ? '面談実施日 & 面談内容' : '完了日 & メモ'}</label>
                             {!isCheckOnlyItem && !isTrainingCategory && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleCheck(); }}
@@ -683,7 +683,49 @@
                                 </button>
                             )}
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2"><input type="date" value={data.completedDate} onChange={(e) => onChange({ ...data, completedDate: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm w-full sm:w-auto" />{!isInterviewItem && <input type="text" placeholder="メモを入力..." value={data.memo || ''} onChange={(e) => onChange({ ...data, memo: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm flex-grow" />}</div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <input type="date" value={data.completedDate} onChange={(e) => onChange({ ...data, completedDate: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm w-full sm:w-auto" />
+                            {!isInterviewItem && <input type="text" placeholder="メモを入力..." value={data.memo || ''} onChange={(e) => onChange({ ...data, memo: e.target.value })} className="border rounded px-2 py-2 sm:py-1 text-sm flex-grow" />}
+                        </div>
+                        {isInterviewItem && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold mb-1 text-gray-500">心身の状態</label>
+                                    <select
+                                        value={data.healthCondition || ''}
+                                        onChange={(e) => onChange({ ...data, healthCondition: e.target.value })}
+                                        className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none bg-white text-gray-700"
+                                    >
+                                        <option value="">未評価</option>
+                                        <option value="良好">😊 良好</option>
+                                        <option value="普通">😐 普通</option>
+                                        <option value="不調">😥 不調</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold mb-1 text-gray-500">モチベーション</label>
+                                    <select
+                                        value={data.motivation || ''}
+                                        onChange={(e) => onChange({ ...data, motivation: e.target.value })}
+                                        className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none bg-white text-gray-700"
+                                    >
+                                        <option value="">未評価</option>
+                                        <option value="高い">🔥 高い</option>
+                                        <option value="普通">➖ 普通</option>
+                                        <option value="低い">💧 低い</option>
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+                        {isInterviewItem && (
+                            <textarea
+                                placeholder="面談内容やフィードバックを記載..."
+                                value={data.interviewNotes || ''}
+                                onChange={(e) => onChange({ ...data, interviewNotes: e.target.value })}
+                                className="mt-3 border rounded px-3 py-2 text-sm w-full focus:ring-2 focus:ring-indigo-200 outline-none resize-y"
+                                rows="3"
+                            />
+                        )}
                         </div>
                     </div>
                     </div>
