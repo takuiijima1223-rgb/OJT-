@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -34,6 +34,17 @@
         .animate-slideDown { animation: slideDown 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* トップ画面用の背景アニメーション */
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
         /* エラー表示用のスタイル */
@@ -53,14 +64,19 @@
             ChevronDown, ChevronUp, AlertCircle, RefreshCw, Medal, Star, HelpCircle, 
             GraduationCap, CheckCircle, XCircle, Calculator, Target, 
             MessageCircle, ShieldCheck, Lock, Loader2, Activity, TestTube, 
-            Cloud, Briefcase, Award, Trash2, BookOpen
+            Cloud, Briefcase, Award, Trash2, BookOpen, PlusCircle, Settings, Building
         } from 'lucide-react';
         import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
         // ==========================================
-        // 【設定】ここにGASのウェブアプリURLを貼り付けてください
-        // ==========================================
+        // 【設定】
+        // 1. GASのウェブアプリURL
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzDXpTJkbWLwOfMruSE7aJNBeW6N1_8ZG7Q4cnWOBZld_1jYcFt1AiTqcTWsYC1QOZ7Cg/exec"; 
+        
+        // 2. エリアマネージャー（AM）向け管理一覧の暗証番号（4桁）
+        // ※初期設定は "9999" です。任意の4桁の数字に変更してください。空文字 "" にするとパスワードなしでアクセスできます。
+        const AM_PASSWORD = "9999";
+        // ==========================================
 
         // --- Error Boundary (これで真っ白画面を防ぎます) ---
         class ErrorBoundary extends Component {
@@ -203,6 +219,7 @@
             '作業管理': { border: 'border-l-orange-500', badgeBg: 'bg-orange-100', badgeText: 'text-orange-700', icon: 'text-orange-500' },
             '事業部研修': { border: 'border-l-emerald-500', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700', icon: 'text-emerald-500' },
             '定期面談': { border: 'border-l-pink-500', badgeBg: 'bg-pink-100', badgeText: 'text-pink-700', icon: 'text-pink-500' },
+            'その他': { border: 'border-l-gray-500', badgeBg: 'bg-gray-100', badgeText: 'text-gray-700', icon: 'text-gray-500' },
             'default': { border: 'border-l-slate-400', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700', icon: 'text-slate-400' }
         };
 
@@ -287,83 +304,81 @@
         const TYPE_A_ITEMS_MONTH2_EXP = [
             { id: 'a_prod_manage_exp', category: '作業管理', subCategory: '生産管理・配置', task: '進捗管理', deadline: '2ヶ月以内', month: 2, criteria: '担当するラインの目標数に対し、昼休憩の時点で「ペース通りか、遅れているか」を数値（あと何個）で把握できている。', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_exp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '適切なフィードバック', deadline: '2ヶ月以内', month: 2, criteria: '利用者のミスや問題行動に対し、「障害特性によるもの（環境調整が必要）」か「意識の問題(指導が必要)」かを明確に区別し、適切なフィードバック（叱責ではなく工夫、または規律指導）を使い分けられる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_exp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH2_INEXP = [
             { id: 'a_prod_manage_inexp', category: '作業管理', subCategory: '生産管理・配置', task: '品質維持', deadline: '2ヶ月以内', month: 2, criteria: '担当工程において、自身の検品ミス（不良流出）を月間0件にする', specificType: 'A', passingScore: 3 },
             { id: 'a_char_instruct_inexp', category: '利用者理解', subCategory: '特性と指導の識別(ソフト)', task: '感情コントロール', deadline: '2ヶ月以内', month: 2, criteria: '利用者からの「過度な要求」や「私語」に対し、感情的にならず毅然と切り上げて作業へ促すことができる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_inexp', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH3_EXP = [
             { id: 'a_bottleneck_exp_m3', category: '作業管理', subCategory: 'ボトルネック解消', task: '納期遅延ゼロ', deadline: '3ヶ月以内', month: 3, criteria: '【定量】担当ラインの納期遅延・未達を「0回」にする※作業が滞る原因を特定し、工程の修正案を1件以上提出し実行する', specificType: 'A', passingScore: 3 },
             { id: 'a_assessment_exp_m3', category: '利用者理解', subCategory: 'アセスメント', task: '改善指導', deadline: '3ヶ月以内', month: 3, criteria: '利用者の作業課題(遅い、雑)に対し、具体的な改善指導(治具提案や動作指導)ができる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH3_INEXP = [
             { id: 'a_speed_area1_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当①', task: '作業スピード', deadline: '3ヶ月以内', month: 3, criteria: '【定量】職員作業（検品・梱包等）において、ベテラン職員の80%以上のスピードでこなせる', specificType: 'A', passingScore: 3 },
             { id: 'a_speed_area2_inexp_m3', category: '作業管理', subCategory: 'スピード・エリア担当②', task: 'エリア管理', deadline: '3ヶ月以内', month: 3, criteria: '特定の作業エリアを一人で任され、利用者の質問に全て答えられる（保留にしない）', specificType: 'A', passingScore: 3 },
             { id: 'a_inhibition_factor_inexp_m3', category: '利用者理解', subCategory: '就労阻害要因の発見', task: '変化の察知・報告', deadline: '3ヶ月以内', month: 3, criteria: '利用者の作業の手が止まる、ミスが増える等の変化に対し、その原因（眠気、薬の影響、人間関係のストレス等）を推測し、サビ管に事実ベースで報告できる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH4_6_EXP = [
             { id: 'a_negotiation_exp_m46', category: '作業管理', subCategory: '対外折衝・営業', task: '対外折衝・営業', deadline: '4-6ヶ月', month: 4, criteria: '企業担当者との納期調整、不良品発生時の謝罪・対策報告を単独で完結できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_exp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '「業務効率」と「障害特性」のバランスを見極め、特定の利用者がミスなく働けるための具体的配慮（ツール導入やルール変更）を1件以上実現する', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点以上', specificType: 'A', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_A_ITEMS_MONTH4_6_INEXP = [
             { id: 'a_goal_awareness_inexp_m46', category: '作業管理', subCategory: '目標意識', task: '目標意識', deadline: '4-6ヶ月', month: 4, criteria: '「今日は〇個作る」という目標を利用者に共有し、進捗管理の声掛け（ペース配分）ができる', specificType: 'A', passingScore: 3 },
             { id: 'a_rule_guidance_inexp_m46', category: '作業管理', subCategory: 'ルールの指導', task: 'ルールの指導', deadline: '4-6ヶ月', month: 4, criteria: '利用者の身だしなみ違反やルール違反に対し、見て見ぬふりをせずその場で注意・指導できる', specificType: 'A', passingScore: 3 },
             { id: 'a_reasonable_accommodation_inexp_m46', category: '利用者理解', subCategory: '合理的配慮の構築', task: '合理的配慮の構築', deadline: '4-6ヶ月', month: 4, criteria: '担当利用者について「できないこと」だけでなく「得意な作業・集中できる時間帯」等のポジティブな情報を発見し、日報や会議で共有できる', specificType: 'A', passingScore: 3 },
-            { id: 'a_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '90点以上', specificType: 'A', passingScore: 90 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH2_EXP = [
             { id: 'b_behavior_exp_m2', category: '利用者理解', subCategory: '行動障害/不穏対応', task: '不穏・パニック対応', deadline: '2ヶ月以内', month: 2, criteria: '不穏・パニックになりそうな利用者に対し、予兆を察知してクールダウン等の予防介入ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_cut_exp_m2', category: '作業管理', subCategory: '作業切り出し', task: '工程考案・導入', deadline: '2ヶ月以内', month: 2, criteria: '重度者、普段参加できていないでも利用者も参加できる新しい工程等を考案し、現場に導入する', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_exp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '95点以上', specificType: 'B', passingScore: 95 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH2_INEXP = [
             { id: 'b_trust_inexp_m2', category: '利用者理解', subCategory: '信頼関係・受容', task: '受容的対応', deadline: '2ヶ月以内', month: 2, criteria: '作業拒否や離席に対し、感情的にならず「待つ」「寄り添う」対応ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_wage_rule_inexp_m2', category: '作業管理', subCategory: '工賃規定の理解', task: '工賃ルール説明', deadline: '2ヶ月以内', month: 2, criteria: '時給制ではなく、成果や通所日数で工賃が決まるルールを正しく理解し、利用者に聞かれたら答えられる', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_inexp_m2', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '2ヶ月以内', month: 2, criteria: '90点以上', specificType: 'B', passingScore: 90 },
             { id: 'interview_2', category: '定期面談', subCategory: '振り返り', task: '2ヶ月目面談', deadline: '2ヶ月後', month: 2, criteria: '2ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH3_EXP = [
             { id: 'b_structure_exp_m3', category: '利用者管理', subCategory: '構造化/環境設定', task: 'リスク低減', deadline: '3ヶ月以内', month: 3, criteria: '担当エリアのヒヤリハット・トラブル件数を前月比で減少させる', specificType: 'B', passingScore: 3 },
             { id: 'b_draft_exp_m3', category: '利用者管理', subCategory: '原案作成', task: '計画案作成', deadline: '3ヶ月以内', month: 3, criteria: '個別支援計画の「短期目標」に対し、現状の課題と次のステップを具体的に言語化し、サビ管に提案できる', specificType: 'B', passingScore: 3 },
             { id: 'b_background_exp_m3', category: '利用者理解', subCategory: '行動背景の言語化', task: '行動背景説明', deadline: '3ヶ月以内', month: 3, criteria: '対応が難しい利用者の行動（こだわり、拒否等）について、障害特性や成育歴などの背景を踏まえ、「なぜそうするのか」を他のスタッフへ論理的に解説できる', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_exp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH3_INEXP = [
             { id: 'b_group_grasp_inexp_m3', category: '利用者管理', subCategory: '集団の把握', task: '見守り', deadline: '3ヶ月以内', month: 3, criteria: '担当エリア（利用者5〜10名程度）を一人で見守り、事故・トラブル件数0件で1日を終えられる', specificType: 'B', passingScore: 3 },
             { id: 'b_record_quality_inexp_m3', category: '利用者管理', subCategory: '記録の質', task: '事実記録', deadline: '3ヶ月以内', month: 3, criteria: '日報やケース記録において、「推測」ではなく「事実（5W1H）」に基づいた記録が書ける', specificType: 'B', passingScore: 3 },
             { id: 'b_early_detection_inexp_m3', category: '利用者理解', subCategory: '予兆の早期発見', task: '変化察知', deadline: '3ヶ月以内', month: 3, criteria: '「いつもと顔色が違う」「声のトーンが低い」等の小さな変化を朝一番で察知し、トラブルになる前に上長へ報告・相談ができる', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_inexp_m3', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '3ヶ月以内', month: 3, criteria: '90点', specificType: 'B', passingScore: 90 },
             { id: 'interview_3', category: '定期面談', subCategory: '振り返り', task: '3ヶ月目面談', deadline: '3ヶ月後', month: 3, criteria: '3ヶ月目の振り返りとフィードバックを実施', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH4_6_EXP = [
             { id: 'b_wage_improve_exp_m46', category: '作業管理', subCategory: '工賃向上', task: '工賃向上施策', deadline: '4-6ヶ月', month: 4, criteria: '【定量】担当利用者の平均工賃（または作業参加時間）を向上させる施策を実行する', specificType: 'B', passingScore: 3 },
             { id: 'b_decision_exp_m46', category: '利用者理解', subCategory: '意思決定支援', task: 'ニーズ引き出し', deadline: '4-6ヶ月', month: 4, criteria: '本人の言葉にならないニーズ（本当はどうしたいか）を対話や観察から引き出し、本人の希望に基づいた新たな目標（やりたい作業や生活の夢）を1つ以上設定する', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_exp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '95点', specificType: 'B', passingScore: 95 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
         const TYPE_B_ITEMS_MONTH4_6_INEXP = [
             { id: 'b_choice1_inexp_m46', category: '利用者理解', subCategory: '選択の機会①', task: '自己選択支援', deadline: '4-6ヶ月', month: 4, criteria: '「やりなさい」ではなく「AとBどちらをやりますか？」といった自己選択を促す支援ができる', specificType: 'B', passingScore: 3 },
             { id: 'b_choice2_inexp_m46', category: '利用者理解', subCategory: '選択の機会②', task: '未然報告', deadline: '4-6ヶ月', month: 4, criteria: '利用者の「小さな変化（体調・気分）」を朝の段階で察知し、未然にサビ管へ報告・相談できる', specificType: 'B', passingScore: 3 },
             { id: 'b_dialogue_inexp_m46', category: '利用者理解', subCategory: '特性に応じた対話', task: '意思疎通', deadline: '4-6ヶ月', month: 4, criteria: '言葉でのコミュニケーションが苦手な利用者に対し、筆談、ジェスチャー、平易な言葉への言い換え等を使い分け、相互理解（意思疎通）を成立させることができる', specificType: 'B', passingScore: 3 },
-            { id: 'b_training_6_inexp_m46', category: '事業部研修', subCategory: '必要6項目研修', task: '研修受講・テスト', deadline: '4-6ヶ月', month: 4, criteria: '90点', specificType: 'B', passingScore: 90 },
             { id: 'interview_4', category: '定期面談', subCategory: '振り返り', task: '4-6ヶ月目面談', deadline: '4-6ヶ月後', month: 4, criteria: '試用期間終了後の振り返りと目標設定', isInterview: true },
         ];
 
-        // Combine Helper
-        const getTemplate = (type) => {
+        // --- 追加: 必須研修6項目（社員のみ適用） ---
+        const TRAINING_ITEMS = [
+            { id: 'train_1', category: '事業部研修', subCategory: '必須研修', task: '施設外就労先での企業様対応・ビジネスマナー', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+            { id: 'train_2', category: '事業部研修', subCategory: '必須研修', task: '意識向上モチベーション・コミュニケーション意識の重要性について', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+            { id: 'train_3', category: '事業部研修', subCategory: '必須研修', task: 'コンプライアンス・アンガーマネジメント', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+            { id: 'train_4', category: '事業部研修', subCategory: '必須研修', task: '事故対応・防犯対策金銭管理', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+            { id: 'train_5', category: '事業部研修', subCategory: '必須研修', task: '福祉事業における収入と支出・仕事の再現性研修', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+            { id: 'train_6', category: '事業部研修', subCategory: '必須研修', task: '利用者対応・障がいと支援', deadline: '随時', month: 5, criteria: '該当の研修に参加し、所定の報告書を提出すること' },
+        ];
+
+        // Combine Helper (jobTypeを受け取るように変更)
+        const getTemplate = (type, jobType) => {
             let items;
             const safeType = type || 'A_Inexp';
             
@@ -379,10 +394,43 @@
                 else { items = [...items, ...TYPE_B_ITEMS_MONTH2_INEXP, ...TYPE_B_ITEMS_MONTH3_INEXP, ...TYPE_B_ITEMS_MONTH4_6_INEXP]; }
             }
 
+            // 雇用形態が「社員」の場合のみ、事業部研修（6項目）を追加する
+            if (jobType === '社員') {
+                items = [...items, ...TRAINING_ITEMS];
+            }
+
             const categoryOrder = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '工賃管理', '事業部研修', '定期面談'];
             return items.sort((a, b) => {
                 if (a.month !== b.month) return a.month - b.month;
                 const catDiff = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
+                if (catDiff !== 0) return catDiff;
+                return 0;
+            });
+        };
+
+        // 個別カスタマイズ対応のテンプレート取得
+        const getTemplateForEmployee = (employee) => {
+            if (!employee) return [];
+            const safeType = employee.type || 'A_Inexp';
+            let items = getTemplate(safeType, employee.jobType);
+            
+            // 削除された項目を除外
+            if (employee.excludedItemIds && employee.excludedItemIds.length > 0) {
+                items = items.filter(item => !employee.excludedItemIds.includes(item.id));
+            }
+            
+            // 独自に追加された項目を結合
+            if (employee.customItems && employee.customItems.length > 0) {
+                items = [...items, ...employee.customItems];
+            }
+            
+            // ソート処理（未定義のカテゴリは最後尾へ）
+            const categoryOrder = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '工賃管理', '事業部研修', '定期面談'];
+            return items.sort((a, b) => {
+                if (a.month !== b.month) return a.month - b.month;
+                const indexA = categoryOrder.indexOf(a.category);
+                const indexB = categoryOrder.indexOf(b.category);
+                const catDiff = (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
                 if (catDiff !== 0) return catDiff;
                 return 0;
             });
@@ -394,7 +442,7 @@
             if (!items || !progress) return { current: 0, max: 0 };
             items.forEach(item => {
                 if (item.passingScore && item.passingScore > 5) return;
-                if (item.category === '事業部研修') return;
+                if (item.category === '事業部研修') return; // 研修は点数から除外
                 if (item.category === '定期面談') return; 
                 if (item.isCheckOnly) return; 
                 max += 5;
@@ -415,17 +463,26 @@
 
         // --- Sub Components ---
         const RadarSkillChart = ({ items, progress }) => {
-            const categories = ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '事業部研修'];
+            const hasTraining = items.some(i => i.category === '事業部研修');
+            // パート等で事業部研修が無い場合は、レーダーチャートの軸からも除外して自動調整
+            const categories = hasTraining 
+                ? ['利用者管理', '接遇・マナー', '利用者理解', '作業管理', '事業部研修']
+                : ['利用者管理', '接遇・マナー', '利用者理解', '作業管理'];
+                
             const data = categories.map(cat => {
                 const catItems = items.filter(i => i.category === cat);
                 if (catItems.length === 0) return { subject: cat, A: 0, fullMark: 5 };
-                const totalScore = catItems.reduce((acc, item) => {
-                    let s = progress[item.id]?.score || 0;
-                    if (item.category === '事業部研修') s = s / 20; 
-                    return acc + s;
-                }, 0);
-                const avg = totalScore / catItems.length;
-                return { subject: cat, A: avg, fullMark: 5 };
+                
+                if (cat === '事業部研修') {
+                    // 研修は点数がないため、完了数でスキルレベル(5段階)を算出
+                    const completedCount = catItems.filter(item => progress[item.id]?.checked).length;
+                    const avg = (completedCount / catItems.length) * 5;
+                    return { subject: cat, A: avg, fullMark: 5 };
+                } else {
+                    const totalScore = catItems.reduce((acc, item) => acc + (progress[item.id]?.score || 0), 0);
+                    const avg = totalScore / catItems.length;
+                    return { subject: cat, A: avg, fullMark: 5 };
+                }
             });
             return (
                 <div className="h-64 w-full flex justify-center items-center bg-white/50 rounded-xl p-4">
@@ -504,14 +561,21 @@
             const isTypeA = safeType.startsWith('A');
             const typeLabels = { 'A_Exp': 'A型 経験者', 'A_Inexp': 'A型 未経験者', 'B_Exp': 'B型 経験者', 'B_Inexp': 'B型 未経験者' };
             const typeLabel = typeLabels[safeType] || '未設定';
+            // 個別にカスタマイズされた項目リストを取得して進捗計算に適用
+            const items = getTemplateForEmployee(employee);
+            const completedCount = items.filter(i => employee.progress[i.id]?.checked).length;
+            const percent = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
+            const { current, max } = calculateTotalScore(items, employee.progress);
+            const hasInterviewAlert = checkInterviewAlert(employee);
 
             return (
-                <div onClick={onClick} className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 bg-white p-5 flex flex-col gap-4`}>
+                <div onClick={onClick} className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 ${hasInterviewAlert ? 'ring-2 ring-red-100 border-red-400' : ''} bg-white p-5 flex flex-col gap-4`}>
                 <div className={`absolute top-0 left-0 w-2 h-full ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} />
                 <div className="flex justify-between items-start pl-4">
                     <div className="flex-grow">
                     <div className="flex gap-2 mb-2 flex-wrap">
                         <span className={`inline-block px-2 py-1 rounded-md text-xs font-bold ${isTypeA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{typeLabel}</span>
+                        {hasInterviewAlert && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse"><AlertCircle size={12} /> 面談未実施</span>}
                     </div>
                     <h3 className="text-xl font-bold text-gray-800">{employee.name}</h3>
                     <p className="text-sm text-gray-500 flex items-center gap-1 mb-3"><Calendar size={14} /> 入社: {employee.joinDate}</p>
@@ -541,64 +605,65 @@
             );
         };
 
-        const ChecklistItemRow = ({ item, data, onChange, userType }) => {
+        const ChecklistItemRow = ({ item, data, onChange, onRemove, userType }) => {
             const [expanded, setExpanded] = useState(false);
+            const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
             const isTrainingCategory = item.category === '事業部研修';
             const isInterviewItem = item.isInterview;
             const isCheckOnlyItem = item.isCheckOnly;
 
             const handleScore = (val) => {
-                // クリックした点数が現在のスコアと同じなら0（選択解除）にする
-                // データ型が文字列になっている場合を考慮してNumber()で変換
                 const currentScore = Number(data.score || 0);
                 const newScore = (currentScore === val) ? 0 : val;
                 
                 const newData = { ...data, score: newScore };
                 
                 if (newScore === 0) {
-                    // 0点になった場合、完了状態もリセットする
-                    if (isTrainingCategory) {
-                        newData.passStatus = '';
-                    } else {
-                        newData.checked = false;
-                        newData.completedDate = '';
-                    }
+                    newData.checked = false;
+                    newData.completedDate = '';
                 } else if (item.passingScore && newScore >= item.passingScore) {
-                    // 合格点以上になった場合
-                    if (isTrainingCategory) { 
-                        newData.passStatus = '合格'; 
-                    } else { 
-                        newData.checked = true; 
-                        if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0]; 
-                    }
+                    newData.checked = true;
+                    if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0];
                 } else if (item.passingScore && newScore < item.passingScore) {
-                    // 合格点未満になった場合、完了状態を解除する（要件によるがリセット挙動が自然）
-                    if (!isTrainingCategory) {
-                         newData.checked = false;
-                         // 点数が下がった場合も、基準を満たさないので完了日付は消去する運用とする
-                         // もし日付を残したい場合はここを調整するが、
-                         // 基本的には「未完了」に戻るため日付もクリアが良い
-                         // ただし、ユーザーが「点数を修正したいだけ」の可能性もある。
-                         // ここでは「基準を満たさなくなった＝未完了」として扱う。
-                    }
+                    newData.checked = false;
                 }
 
                 onChange(newData);
-                // 点数が入った時だけ展開する
-                if (!expanded && !isTrainingCategory && newScore > 0) setExpanded(true); 
+                if (!expanded && newScore > 0) setExpanded(true); 
             };
-            const handlePassStatus = (status) => onChange({ ...data, passStatus: status });
+
+            // 事業部研修（2つのチェック）を管理する関数
+            const handleTrainingCheck = (field) => {
+                const newVal = !data[field];
+                const newData = { ...data, [field]: newVal };
+                
+                // 「参加」と「報告書」の両方がtrueなら全体として完了扱いにする
+                if (newData.attended && newData.reportSubmitted) {
+                    newData.checked = true;
+                    if (!newData.completedDate) newData.completedDate = new Date().toISOString().split('T')[0];
+                } else {
+                    newData.checked = false;
+                    newData.completedDate = '';
+                }
+                
+                onChange(newData);
+                if (!expanded && (newData.attended || newData.reportSubmitted)) setExpanded(true);
+            };
+
             const handleCheck = () => {
                 const newVal = !data.checked;
                 onChange({ ...data, checked: newVal, completedDate: newVal ? new Date().toISOString().split('T')[0] : '' });
             };
+
             const handleInterviewName = (name) => onChange({ ...data, memo: name });
+            
             const getScoreColor = (s) => {
                 if (s >= 4) return 'bg-green-500 text-white border-green-500';
                 if (s >= 3) return 'bg-yellow-400 text-white border-yellow-400';
                 if (s > 0) return 'bg-orange-400 text-white border-orange-400';
                 return 'bg-white text-gray-300 border-gray-200';
             };
+            
             const isTypeAItem = item.specificType === 'A';
             const isTypeAUser = userType && userType.startsWith('A');
             const isReq = item.isFacilityRequirement && isTypeAUser;
@@ -608,21 +673,24 @@
 
             let containerClasses = `rounded-xl my-4 shadow-sm relative overflow-hidden border transition-all ${catStyle.border} border-l-4 `;
             if (showTypeALabel) containerClasses += "border-blue-300 bg-blue-50/40 ";
+            else if (item.isCustom) containerClasses += "border-gray-300 bg-gray-50/50 border-dashed ";
             else if (isReq) containerClasses += "border-amber-200 bg-amber-50/30 ";
             else containerClasses += "border-gray-200 bg-white hover:shadow-md ";
+            
             if (isReq && isReqMet) containerClasses += " ring-1 ring-amber-300 bg-amber-50/80";
 
             return (
                 <div className={containerClasses}>
                 <div className="absolute top-0 right-0 flex">
+                    {item.isCustom && <div className="bg-gray-500 text-white text-[10px] px-3 py-0.5 rounded-bl-xl font-bold z-10 shadow-sm">追加項目</div>}
                     {isReq && <div className={`text-[10px] px-2 py-0.5 font-bold z-10 shadow-sm flex items-center gap-1 ${isReqMet ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{isReqMet ? <Star size={10} fill="white" /> : <Star size={10} />} 施設外要件</div>}
-                    {showTypeALabel && <div className="bg-blue-500 text-white text-[10px] px-3 py-0.5 rounded-bl-xl font-bold z-10 shadow-sm">A型専用</div>}
+                    {showTypeALabel && !item.isCustom && <div className="bg-blue-500 text-white text-[10px] px-3 py-0.5 rounded-bl-xl font-bold z-10 shadow-sm">A型専用</div>}
                 </div>
                 <div className="p-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
                     {isInterviewItem ? (
                     <button onClick={handleCheck} className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-pink-500 border-pink-500 text-white' : 'border-gray-300 text-transparent hover:border-pink-400'}`}><MessageCircle size={18} /></button>
                     ) : isTrainingCategory ? (
-                    <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center"><GraduationCap size={24} className="text-emerald-500" /></div>
+                    <div className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 text-emerald-500'}`}><GraduationCap size={16} /></div>
                     ) : (
                     <button onClick={handleCheck} className={`flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 rounded-md border-2 flex items-center justify-center transition-all ${data.checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-transparent hover:border-indigo-400'}`}><CheckSquare size={18} /></button>
                     )}
@@ -636,12 +704,19 @@
                     {isInterviewItem ? (
                         <div className="flex items-center gap-2 w-full sm:w-auto"><input type="text" placeholder="面談者名" value={data.memo || ''} onChange={(e) => handleInterviewName(e.target.value)} className="border rounded px-2 py-2 text-sm w-full sm:w-24" onClick={(e) => e.stopPropagation()} /></div>
                     ) : isTrainingCategory ? (
-                        <div className="flex items-center gap-2">
-                        <div className="flex items-center border rounded-md bg-white px-2 py-1"><input type="number" min="0" max="100" value={data.score || ''} onChange={(e) => handleScore(Number(e.target.value))} className="w-10 text-center font-bold outline-none text-sm" placeholder="0" /><span className="text-xs text-gray-400">点</span></div>
-                        <div className="flex gap-1">
-                            <button onClick={() => handlePassStatus('合格')} className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '合格' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-200'}`}><CheckCircle size={10} /> 合格</button>
-                            <button onClick={() => handlePassStatus('不合格')} className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 ${data.passStatus === '不合格' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-400 border-gray-200'}`}><XCircle size={10} /> 不合格</button>
-                        </div>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleTrainingCheck('attended'); }} 
+                                className={`px-2 py-1.5 rounded text-[11px] sm:text-xs font-bold border flex items-center gap-1 transition-colors ${data.attended ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                {data.attended ? <CheckCircle size={12}/> : <div className="w-3 h-3 rounded-full border border-gray-400" />} 参加
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleTrainingCheck('reportSubmitted'); }} 
+                                className={`px-2 py-1.5 rounded text-[11px] sm:text-xs font-bold border flex items-center gap-1 transition-colors ${data.reportSubmitted ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                {data.reportSubmitted ? <CheckCircle size={12}/> : <div className="w-3 h-3 rounded-full border border-gray-400" />} 報告書
+                            </button>
                         </div>
                     ) : isCheckOnlyItem ? (
                         <div className="text-xs text-gray-400">チェックのみ</div>
@@ -659,8 +734,8 @@
                         <Award className={`w-4 h-4 mt-0.5 ${catStyle.icon}`} />
                         <div>
                             <span className="font-bold text-gray-800 block text-xs mb-1">合格基準</span>
-                            <p>{item.criteria}</p>
-                            {isTrainingCategory && item.passingScore && <p className="mt-1 text-xs text-emerald-600 font-bold">※ 合格基準点: {item.passingScore}点以上</p>}
+                            <p className="whitespace-pre-wrap">{item.criteria}</p>
+                            {isTrainingCategory && <p className="mt-1 text-xs text-emerald-600 font-bold">※ 「参加」と「報告書」の両方にチェックを入れると完了となります。</p>}
                             {isReq && <p className="mt-1 text-xs text-amber-600 font-bold">※ 施設外就労へ1人で任せてもらえるには、チェック{isCheckOnlyItem ? '' : '及び3点以上の評価'}が必要です。</p>}
                         </div>
                         </div>
@@ -727,6 +802,22 @@
                             />
                         )}
                         </div>
+
+                        {/* 個別削除（除外）UI */}
+                        {showRemoveConfirm ? (
+                            <div className="flex items-center gap-2 mt-4 bg-red-50 p-2 rounded-lg border border-red-100 animate-fadeIn">
+                                <span className="text-xs text-red-600 font-bold flex-grow">この項目をOJTリストから削除しますか？</span>
+                                <button onClick={(e) => { e.stopPropagation(); onRemove(); setShowRemoveConfirm(false); }} className="bg-red-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-red-600 shadow-sm">削除</button>
+                                <button onClick={(e) => { e.stopPropagation(); setShowRemoveConfirm(false); }} className="bg-white text-gray-600 border border-gray-300 px-3 py-1.5 rounded-md text-xs hover:bg-gray-50">キャンセル</button>
+                            </div>
+                        ) : (
+                            <div className="mt-4 flex justify-end">
+                                <button onClick={(e) => { e.stopPropagation(); setShowRemoveConfirm(true); }} className="text-gray-400 hover:text-red-500 text-xs flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-red-50">
+                                    <Trash2 size={14}/> この項目をリストから削除
+                                </button>
+                            </div>
+                        )}
+
                     </div>
                     </div>
                 )}
@@ -737,6 +828,7 @@
         // --- Main App Component ---
 
         function OjtApp() {
+            const [currentView, setCurrentView] = useState('home'); // 'home', 'ojt_list', 'am_list', 'detail'
             const [selectedEmpId, setSelectedEmpId] = useState(null);
             const [isAdding, setIsAdding] = useState(false);
             const [activeTab, setActiveTab] = useState(1);
@@ -753,25 +845,44 @@
             const [pendingSetupEmp, setPendingSetupEmp] = useState(null);
             const [setupPassword, setSetupPassword] = useState('');
 
+            // カスタム項目管理モーダル用の状態
+            const [showManageItemsModal, setShowManageItemsModal] = useState(false);
+            const [manageModalTab, setManageModalTab] = useState('list');
+
+            // AMパスワード認証用の状態
+            const [showAmAuthModal, setShowAmAuthModal] = useState(false);
+            const [amInputPassword, setAmInputPassword] = useState('');
+            const [amAuthError, setAmAuthError] = useState(false);
+
             // GAS Data Manager
             const { employees, isReady, saveStatus, isLoading, actions, isConfigured } = useGasDataManager(isPracticeMode);
 
             const handleAddEmployee = async (name, type, jobType, role, joinDate, password) => {
                 if (!name) return;
-                const newEmp = { id: generateId(), name, type, jobType, role, joinDate, password, progress: {} };
+                const newEmp = { 
+                    id: generateId(), 
+                    name, 
+                    type, 
+                    jobType, 
+                    role, 
+                    joinDate, 
+                    password, 
+                    progress: {},
+                    excludedItemIds: [],
+                    customItems: []
+                };
                 await actions.addEmployee(newEmp);
                 setIsAdding(false);
                 setSelectedEmpId(newEmp.id);
+                setCurrentView('detail'); // 登録後すぐに詳細画面へ
             };
 
             const handleCardClick = (emp) => {
-                // パスワードが設定されている場合は認証モーダルを表示
                 if (emp.password) {
                     setPendingAuthEmp(emp);
                     setInputPassword('');
                     setAuthError(false);
                 } else {
-                    // パスワードが未設定の既存データの場合は、初期設定モーダルを表示
                     setPendingSetupEmp(emp);
                     setSetupPassword('');
                 }
@@ -781,6 +892,7 @@
                 e.preventDefault();
                 if (pendingAuthEmp.password === inputPassword) {
                     setSelectedEmpId(pendingAuthEmp.id);
+                    setCurrentView('detail'); // 詳細画面へ遷移
                     setPendingAuthEmp(null);
                 } else {
                     setAuthError(true);
@@ -790,10 +902,10 @@
             const handleSetupSubmit = async (e) => {
                 e.preventDefault();
                 if (setupPassword.length === 4) {
-                    // 既存の社員データにパスワードを追加して保存・更新
                     const updatedEmp = { ...pendingSetupEmp, password: setupPassword };
                     await actions.updateEmployee(updatedEmp);
                     setSelectedEmpId(pendingSetupEmp.id);
+                    setCurrentView('detail'); // 詳細画面へ遷移
                     setPendingSetupEmp(null);
                 }
             };
@@ -808,7 +920,10 @@
 
             const handleDelete = async (empId) => {
                 await actions.deleteEmployee(empId);
-                if (selectedEmpId === empId) setSelectedEmpId(null);
+                if (selectedEmpId === empId) {
+                    setSelectedEmpId(null);
+                    setCurrentView('ojt_list');
+                }
             };
 
             const handleUpdateProgress = async (empId, itemId, data) => {
@@ -817,6 +932,60 @@
                 const newProgress = { ...emp.progress, [itemId]: data };
                 const updatedEmp = { ...emp, progress: newProgress };
                 await actions.updateEmployee(updatedEmp);
+            };
+
+            // 特定の項目の表示・非表示（除外・復元）を切り替える処理
+            const handleToggleItemExclusion = async (empId, item) => {
+                const emp = employees.find(e => e.id === empId);
+                if (!emp) return;
+                
+                const updatedEmp = { ...emp };
+                
+                if (item.isCustom) {
+                    // カスタム項目の場合はリストから完全に削除
+                    updatedEmp.customItems = (updatedEmp.customItems || []).filter(i => i.id !== item.id);
+                } else {
+                    // 基本項目の場合は「除外リスト」への追加・削除を切り替え
+                    const excludedItemIds = updatedEmp.excludedItemIds || [];
+                    if (excludedItemIds.includes(item.id)) {
+                        // 除外リストから外す（復元する）
+                        updatedEmp.excludedItemIds = excludedItemIds.filter(id => id !== item.id);
+                    } else {
+                        // 除外リストに入れる（非表示にする）
+                        updatedEmp.excludedItemIds = [...excludedItemIds, item.id];
+                    }
+                }
+                
+                await actions.updateEmployee(updatedEmp);
+            };
+
+            // 独自のカスタム項目を追加する処理
+            const handleAddCustomSubmit = async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const emp = employees.find(e => e.id === selectedEmpId);
+                if (!emp) return;
+
+                const newItem = {
+                    id: `custom_${Date.now()}`,
+                    category: form.category.value,
+                    subCategory: form.subCategory.value,
+                    task: form.task.value,
+                    criteria: form.criteria.value,
+                    deadline: form.deadline.value,
+                    isCheckOnly: form.evalType.value === 'check',
+                    month: activeTab,
+                    isCustom: true
+                };
+
+                const updatedEmp = { ...emp };
+                updatedEmp.customItems = [...(updatedEmp.customItems || []), newItem];
+                
+                await actions.updateEmployee(updatedEmp);
+                
+                // 追加後はリストタブに切り替えて、追加されたことを確認しやすくする
+                setManageModalTab('list');
+                form.reset();
             };
 
             const SaveStatusIndicator = () => {
@@ -835,35 +1004,255 @@
                 </div>
             );
 
-            // --- Dashboard Render ---
-            const renderDashboard = () => (
+            // ==========================================
+            // 新規: トップ画面 (Home)
+            // ==========================================
+            const renderHome = () => (
+                <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden bg-gray-50">
+                    {/* 背景装飾アニメーション */}
+                    <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+                    <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+                    
+                    <div className="relative z-10 w-full max-w-4xl">
+                        <div className="text-center mb-12">
+                            <h1 className="text-4xl md:text-5xl font-black text-gray-800 mb-4 tracking-tight flex items-center justify-center gap-3">
+                                <Briefcase className="text-indigo-600 w-10 h-10 md:w-12 md:h-12" /> OJT Manager
+                            </h1>
+                            <p className="text-gray-500 text-lg md:text-xl font-medium">障害福祉サービス向け 育成・評価プラットフォーム</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                            {/* OJT管理ボタン */}
+                            <button 
+                                onClick={() => setCurrentView('ojt_list')}
+                                className="group bg-white p-8 rounded-3xl shadow-lg border border-gray-100 hover:border-indigo-300 hover:shadow-xl transition-all duration-300 text-left flex flex-col h-full hover:-translate-y-1 relative overflow-hidden"
+                            >
+                                <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform relative z-10">
+                                    <Users size={32} />
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-3 group-hover:text-indigo-600 transition-colors relative z-10">現場向け OJT管理</h2>
+                                <p className="text-gray-500 flex-grow leading-relaxed relative z-10">各スタッフのOJT進捗入力、評価の記録、定期面談の実施など、日々の育成業務を行うための画面です。</p>
+                                <div className="mt-6 flex items-center text-indigo-600 font-bold text-sm relative z-10">
+                                    管理画面へ進む <ChevronRight className="ml-1 group-hover:translate-x-1 transition-transform" size={16} />
+                                </div>
+                            </button>
+
+                            {/* AM管理ボタン */}
+                            <button 
+                                onClick={() => {
+                                    if (AM_PASSWORD) {
+                                        setShowAmAuthModal(true);
+                                        setAmInputPassword('');
+                                        setAmAuthError(false);
+                                    } else {
+                                        setCurrentView('am_list');
+                                    }
+                                }}
+                                className="group bg-white p-8 rounded-3xl shadow-lg border border-gray-100 hover:border-emerald-300 hover:shadow-xl transition-all duration-300 text-left flex flex-col h-full hover:-translate-y-1 relative overflow-hidden"
+                            >
+                                <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform relative z-10">
+                                    <Building size={32} />
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-3 group-hover:text-emerald-600 transition-colors relative z-10">AM向け 進捗一覧</h2>
+                                <p className="text-gray-500 flex-grow leading-relaxed relative z-10">全スタッフのOJT進捗率や評価スコアを一覧で俯瞰し、エリア全体の育成状況をモニタリングするための画面です。</p>
+                                <div className="mt-6 flex items-center text-emerald-600 font-bold text-sm relative z-10">
+                                    ダッシュボードへ進む <ChevronRight className="ml-1 group-hover:translate-x-1 transition-transform" size={16} />
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <div className="mt-12 flex flex-col items-center gap-4">
+                            <ModeToggle />
+                            {isPracticeMode && <div className="bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 animate-fadeIn"><TestTube size={20} /><span className="font-bold text-sm">「練習モード」動作中（データは保存されません）</span></div>}
+                            {!isConfigured && !isPracticeMode && (
+                                <div className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-sm flex items-center gap-2 text-sm max-w-lg">
+                                  <AlertCircle size={20} className="flex-shrink-0" /> GASのURL設定が必要です。ソースコードを確認してください。
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* AMパスワード認証モーダル */}
+                    {showAmAuthModal && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-fadeIn px-4">
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm animate-slideDown">
+                                <div className="flex flex-col items-center mb-6">
+                                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                                        <Building size={32} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-800">AM管理アクセス</h3>
+                                    <p className="text-sm text-gray-500 mt-2 font-medium">エリアマネージャー用暗証番号を入力</p>
+                                </div>
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (amInputPassword === AM_PASSWORD) {
+                                        setShowAmAuthModal(false);
+                                        setCurrentView('am_list');
+                                    } else {
+                                        setAmAuthError(true);
+                                    }
+                                }}>
+                                    <div className="relative">
+                                        <input 
+                                            type="password" 
+                                            maxLength="4" 
+                                            pattern="\d{4}"
+                                            value={amInputPassword}
+                                            onChange={(e) => { setAmInputPassword(e.target.value.replace(/\D/g, '')); setAmAuthError(false); }}
+                                            className={`w-full text-center text-3xl font-mono tracking-[0.5em] border-2 bg-gray-50/50 rounded-xl py-4 focus:outline-none focus:ring-4 focus:ring-emerald-100 transition-all ${amAuthError ? 'border-red-400 text-red-500 focus:border-red-400' : 'border-gray-200 focus:border-emerald-500'}`}
+                                            placeholder="••••"
+                                            autoFocus
+                                            required
+                                        />
+                                        {amAuthError && <div className="absolute -bottom-6 left-0 right-0 text-red-500 text-xs font-bold text-center animate-pulse">暗証番号が間違っています</div>}
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mt-10">
+                                        <button type="button" onClick={() => setShowAmAuthModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">キャンセル</button>
+                                        <button type="submit" className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 active:scale-95">認証して進む</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            // ==========================================
+            // 新規: AM向け 管理一覧 (AM Dashboard)
+            // ==========================================
+            const renderAmList = () => {
+                return (
+                    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto min-h-screen">
+                        <header className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
+                            <div>
+                                <button onClick={() => setCurrentView('home')} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors mb-4 bg-white px-3 py-1.5 rounded border border-gray-200 shadow-sm">
+                                    <ChevronRight className="rotate-180 w-4 h-4 mr-1" /> トップ画面に戻る
+                                </button>
+                                <div className="flex items-center gap-3 mb-1">
+                                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 text-gray-800">
+                                        <Building className="text-emerald-600" /> エリアマネージャー 管理一覧
+                                    </h1>
+                                    {isPracticeMode && <span className="text-xs px-2 py-0.5 rounded border font-bold whitespace-nowrap bg-orange-100 text-orange-700 border-orange-200">練習環境</span>}
+                                </div>
+                                <p className="text-sm text-gray-500 mt-2">全社員のOJT進捗とスコアを一覧で俯瞰できます。</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center">
+                                <SaveStatusIndicator />
+                                <button onClick={actions.refreshData} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-gray-50 flex items-center gap-2 text-sm ml-2">
+                                    <RefreshCw size={16} /> 最新に更新
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[1000px]">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-gray-200 text-slate-600 text-xs uppercase tracking-wider">
+                                            <th className="p-4 font-bold">氏名 / 入社日</th>
+                                            <th className="p-4 font-bold">属性</th>
+                                            <th className="p-4 font-bold w-48">全体進捗</th>
+                                            <th className="p-4 font-bold text-center">得点</th>
+                                            <th className="p-4 font-bold text-center">1ヶ月</th>
+                                            <th className="p-4 font-bold text-center">2ヶ月</th>
+                                            <th className="p-4 font-bold text-center">3ヶ月</th>
+                                            <th className="p-4 font-bold text-center">4-6ヶ月</th>
+                                            <th className="p-4 font-bold text-center">事業部研修</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {employees.length === 0 ? (
+                                            <tr><td colSpan="9" className="p-12 text-center text-gray-400"><Users className="w-8 h-8 mx-auto mb-2 opacity-50" />社員データがありません</td></tr>
+                                        ) : (
+                                            employees.map(emp => {
+                                                const items = getTemplateForEmployee(emp);
+                                                const scoreData = calculateTotalScore(items, emp.progress);
+                                                const totalItems = items.length;
+                                                const completedItems = items.filter(i => emp.progress[i.id]?.checked).length;
+                                                const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+                                                
+                                                const getMonthPercent = (m) => {
+                                                    const mItems = items.filter(i => i.month === m);
+                                                    if (mItems.length === 0) return '-';
+                                                    const mComp = mItems.filter(i => emp.progress[i.id]?.checked).length;
+                                                    const mPercent = Math.round((mComp / mItems.length) * 100);
+                                                    return (
+                                                        <div className="flex flex-col items-center">
+                                                            <span className={`text-sm font-bold ${mPercent === 100 ? 'text-emerald-600' : 'text-gray-600'}`}>{mPercent}%</span>
+                                                            <span className="text-[10px] text-gray-400">{mComp}/{mItems.length}</span>
+                                                        </div>
+                                                    );
+                                                };
+
+                                                const isTypeA = (emp.type || 'A_Inexp').startsWith('A');
+                                                const themeColor = isTypeA ? 'bg-blue-500' : 'bg-emerald-500';
+
+                                                return (
+                                                    <tr key={emp.id} className="hover:bg-indigo-50/30 transition-colors">
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-gray-800 text-base">{emp.name}</div>
+                                                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-1"><Calendar size={12}/>{emp.joinDate}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="text-xs font-bold text-gray-600 mb-1 bg-gray-100 inline-block px-2 py-0.5 rounded">{emp.role || '-'}</div>
+                                                            <div className="text-[11px] text-gray-500 mt-1">{emp.jobType || '-'} / {emp.type ? emp.type.split('_')[0] + '型' : '-'}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex justify-between items-end mb-1.5">
+                                                                <span className="text-sm font-black text-gray-700">{percent}%</span>
+                                                                <span className="text-[10px] font-medium text-gray-400">{completedItems} / {totalItems}</span>
+                                                            </div>
+                                                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                                                <div className={`h-2 rounded-full transition-all duration-1000 ${percent === 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : themeColor}`} style={{ width: `${percent}%` }}></div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className="font-black text-gray-700 text-lg">{scoreData.current}</span>
+                                                            <span className="text-xs text-gray-400">/{scoreData.max}</span>
+                                                        </td>
+                                                        <td className="p-4">{getMonthPercent(1)}</td>
+                                                        <td className="p-4">{getMonthPercent(2)}</td>
+                                                        <td className="p-4">{getMonthPercent(3)}</td>
+                                                        <td className="p-4">{getMonthPercent(4)}</td>
+                                                        <td className="p-4">
+                                                            {emp.jobType === '社員' ? getMonthPercent(5) : <div className="text-center text-gray-300">-</div>}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // ==========================================
+            // 既存: OJT管理 (ダッシュボード)
+            // ==========================================
+            const renderOjtList = () => (
                 <div className="p-4 sm:p-6 max-w-7xl mx-auto">
                 {isLoading && <div className="loading-overlay"><Loader2 size={48} className="text-indigo-600 animate-spin"/><p className="mt-4 font-bold text-gray-600">読込中...</p></div>}
 
-                {isPracticeMode && <div className="mb-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md flex items-center justify-center gap-2 animate-fadeIn"><TestTube size={20} /><span className="font-bold text-sm">現在は「練習モード」です。データは本番環境に保存されません。</span></div>}
-                
-                {!isConfigured && !isPracticeMode && (
-                    <div className="mb-4 bg-red-100 border border-red-200 text-red-800 px-4 py-4 rounded-lg shadow-sm flex flex-col gap-2">
-                      <div className="flex items-center gap-2 font-bold"><AlertCircle size={20} /> 初期設定が必要です</div>
-                      <p className="text-sm">GASのウェブアプリURLが設定されていません。HTMLファイルを編集し、<code>const GAS_API_URL = "..."</code> の部分にURLを貼り付けてください。</p>
-                    </div>
-                )}
-
                 <header className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
                     <div>
+                    <button onClick={() => setCurrentView('home')} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors mb-4 bg-white px-3 py-1.5 rounded border border-gray-200 shadow-sm">
+                        <ChevronRight className="rotate-180 w-4 h-4 mr-1" /> トップ画面に戻る
+                    </button>
                     <div className="flex items-center gap-3 mb-1">
-                        <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 ${isPracticeMode ? 'text-orange-600' : 'text-gray-800'}`}><Briefcase className={isPracticeMode ? 'text-orange-500' : 'text-indigo-600'} />OJTマネージャー</h1>
-                        <span className={`text-xs px-2 py-0.5 rounded border font-bold whitespace-nowrap ${isPracticeMode ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-indigo-100 text-indigo-700 border-indigo-200'}`}>{isPracticeMode ? '練習環境' : 'クラウド版'}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
-                        <ModeToggle />
-                        <div className="h-4 w-px bg-gray-300 hidden sm:block"></div>
-                        <SaveStatusIndicator />
+                        <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 text-gray-800`}><Users className="text-indigo-600" />現場向け OJT管理</h1>
+                        {isPracticeMode && <span className={`text-xs px-2 py-0.5 rounded border font-bold whitespace-nowrap bg-orange-100 text-orange-700 border-orange-200`}>練習環境</span>}
                     </div>
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-                        <button onClick={actions.refreshData} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-gray-50 flex items-center gap-2 text-sm">
+                    <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center">
+                        <SaveStatusIndicator />
+                        <button onClick={actions.refreshData} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-gray-50 flex items-center gap-2 text-sm ml-2">
                             <RefreshCw size={16} /> 最新に更新
                         </button>
                         <button onClick={() => setIsAdding(true)} className={`${isPracticeMode ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'} text-white px-5 py-2 rounded-lg font-medium shadow-lg transition-all flex items-center gap-2`}>
@@ -898,7 +1287,7 @@
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {employees.length === 0 && !isAdding && (
-                    <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                    <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-2xl border border-gray-200 shadow-sm">
                         <Users className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>社員が登録されていません。<br/>右上のボタンから登録してください。</p>
                         {!isConfigured && <p className="mt-2 text-red-500 text-sm">※GASのURL設定が完了していません</p>}
                     </div>
@@ -979,13 +1368,19 @@
                 </div>
             );
 
-            // --- Detail Render ---
+            // ==========================================
+            // 既存: OJT詳細画面 (入力)
+            // ==========================================
             const renderDetail = () => {
                 const emp = employees.find(e => e.id === selectedEmpId);
                 if (!emp) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="flex flex-col items-center gap-3 text-indigo-600"><Loader2 size={40} className="animate-spin" /><p className="font-bold text-sm">データを読み込み中...</p></div></div>;
+                
                 const safeType = emp.type || 'A_Inexp';
-                const items = getTemplate(safeType);
-                const filteredItems = activeTab === 4 ? items.filter(i => i.month >= 4) : items.filter(i => i.month === activeTab);
+                // 個別カスタマイズ対応のテンプレートを利用
+                const items = getTemplateForEmployee(emp);
+                
+                // activeTab===4の時にmonth:5(事業部研修)が混ざらないよう修正
+                const filteredItems = items.filter(i => activeTab === 4 ? i.month === 4 : i.month === activeTab);
                 const scoreData = calculateTotalScore(items, emp.progress);
                 const totalCurrent = scoreData?.current || 0;
                 const totalMax = scoreData?.max || 0;
@@ -999,14 +1394,129 @@
                 const themeLightBg = isTypeA ? 'bg-blue-50' : 'bg-emerald-50';
                 const courseInfo = COURSE_GOALS[safeType] || { course: '未設定', goal: '未設定' };
                 const hasInterviewAlert = checkInterviewAlert(emp);
+                
+                // 経過月数の計算
+                const getElapsedMonths = (dateStr) => {
+                    if (!dateStr) return 1;
+                    const jd = new Date(dateStr);
+                    const td = new Date();
+                    return (td.getFullYear() - jd.getFullYear()) * 12 + (td.getMonth() - jd.getMonth()) + 1;
+                };
+                const elapsedMonths = Math.max(1, getElapsedMonths(emp.joinDate));
+
+                // 雇用形態に応じたタブリストの生成
+                const tabs = emp.jobType === '社員' ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
 
                 return (
-                <div className="flex flex-col md:flex-row h-[100dvh] bg-gray-50 overflow-hidden">
+                <div className="flex flex-col md:flex-row h-[100dvh] bg-gray-50 overflow-hidden relative">
+                    {/* カスタム項目管理モーダル */}
+                    {showManageItemsModal && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[150] p-4 animate-fadeIn">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slideDown flex flex-col max-h-[90vh]">
+                                <div className="p-5 border-b border-indigo-100 flex justify-between items-center bg-indigo-50">
+                                    <h3 className="font-bold text-indigo-800 flex items-center gap-2">
+                                        <Settings size={20}/> 項目管理 ({activeTab === 4 ? '4-6ヶ月目' : activeTab === 5 ? '事業部研修' : activeTab + 'ヶ月目'})
+                                    </h3>
+                                    <button onClick={() => setShowManageItemsModal(false)} className="text-indigo-400 hover:text-indigo-600 transition-colors"><XCircle size={24}/></button>
+                                </div>
+                                
+                                <div className="flex border-b border-gray-200">
+                                    <button type="button" onClick={() => setManageModalTab('list')} className={`flex-1 py-3 text-sm font-bold transition-colors ${manageModalTab === 'list' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'}`}>項目の表示 / 非表示</button>
+                                    <button type="button" onClick={() => setManageModalTab('add')} className={`flex-1 py-3 text-sm font-bold transition-colors ${manageModalTab === 'add' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'}`}>＋ 新規項目を作成</button>
+                                </div>
+
+                                <div className="flex-grow overflow-y-auto bg-white">
+                                    {manageModalTab === 'list' ? (
+                                        <div className="p-4 flex flex-col gap-3">
+                                            {(() => {
+                                                // このタブに属するすべての項目（非表示にしているものも含む）を取得
+                                                const allBaseItems = getTemplate(emp.type, emp.jobType).filter(i => activeTab === 4 ? i.month === 4 : i.month === activeTab);
+                                                const allCustomItems = (emp.customItems || []).filter(i => i.month === activeTab);
+                                                const allItems = [...allBaseItems, ...allCustomItems];
+                                                
+                                                return allItems.length > 0 ? allItems.map(item => {
+                                                    const isExcluded = (emp.excludedItemIds || []).includes(item.id);
+                                                    return (
+                                                        <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isExcluded ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-white border-indigo-100 shadow-sm'}`}>
+                                                            <div className="flex-grow pr-4">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${isExcluded ? 'bg-gray-200 text-gray-500' : 'bg-indigo-50 text-indigo-600'}`}>{item.category}</span>
+                                                                    {item.isCustom && <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-orange-100 text-orange-600">独自追加</span>}
+                                                                </div>
+                                                                <div className={`text-sm font-bold ${isExcluded ? 'line-through text-gray-400' : 'text-gray-800'}`}>{item.task}</div>
+                                                                <div className="text-xs text-gray-500 mt-1 truncate">{item.criteria}</div>
+                                                            </div>
+                                                            <div className="flex-shrink-0">
+                                                                {item.isCustom ? (
+                                                                    <button onClick={() => handleToggleItemExclusion(emp.id, item)} className="px-4 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-600 hover:bg-red-200 transition-colors">完全に削除</button>
+                                                                ) : (
+                                                                    <button onClick={() => handleToggleItemExclusion(emp.id, item)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm ${isExcluded ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                                                        {isExcluded ? '復元する' : '除外する'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }) : (
+                                                    <p className="text-center text-gray-400 py-8">この月の項目はありません。</p>
+                                                );
+                                            })()}
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleAddCustomSubmit} className="p-6 flex flex-col gap-5">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1.5">カテゴリ (必須)</label>
+                                                <select name="category" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" required>
+                                                    <option value="利用者管理">利用者管理</option>
+                                                    <option value="接遇・マナー">接遇・マナー</option>
+                                                    <option value="利用者理解">利用者理解</option>
+                                                    <option value="作業管理">作業管理</option>
+                                                    <option value="事業部研修">事業部研修</option>
+                                                    <option value="定期面談">定期面談</option>
+                                                    <option value="その他">その他（独自カテゴリ）</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1.5">サブカテゴリ</label>
+                                                <input type="text" name="subCategory" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" placeholder="例：独自ルール、特定企業向け対応 など" required />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1.5">タスク名 (必須)</label>
+                                                <input type="text" name="task" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" placeholder="例：〇〇機械の安全操作手順" required />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1.5">合格基準・内容</label>
+                                                <textarea name="criteria" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all resize-y" placeholder="達成条件や具体的な評価内容を記載してください" rows="3" required></textarea>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-600 mb-1.5">目安期限</label>
+                                                    <input type="text" name="deadline" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" placeholder="例: 2週間以内" required />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-600 mb-1.5">評価形式</label>
+                                                    <select name="evalType" className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all">
+                                                        <option value="score">5段階スコア評価</option>
+                                                        <option value="check">完了チェックのみ</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 flex gap-3 pt-5 border-t border-gray-100">
+                                                <button type="button" onClick={() => setShowManageItemsModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">キャンセル</button>
+                                                <button type="submit" className="flex-1 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all active:scale-95">リストに追加する</button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className={`w-full md:w-72 lg:w-96 bg-white border-b md:border-r md:border-b-0 border-gray-200 flex flex-col shadow-xl z-20 ${showMobileDetail ? 'h-full md:h-full' : 'h-auto md:h-full'} transition-all duration-300 flex-shrink-0`}>
                     <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
                         {isPracticeMode && <div className="mb-4 bg-orange-500 text-white text-xs px-2 py-1 rounded text-center font-bold">練習モード中</div>}
                         <div className="flex justify-between items-start mb-4">
-                        <button onClick={() => setSelectedEmpId(null)} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors"><ChevronRight className="rotate-180 w-4 h-4 mr-1" /> 一覧</button>
+                        <button onClick={() => { setSelectedEmpId(null); setCurrentView('ojt_list'); }} className="flex items-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors"><ChevronRight className="rotate-180 w-4 h-4 mr-1" /> 一覧</button>
                         <div className="flex items-center gap-2">
                             <SaveStatusIndicator />
                             <button className="md:hidden flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors" onClick={() => setShowMobileDetail(!showMobileDetail)}>{showMobileDetail ? <ChevronUp size={16} /> : <BarChart2 size={16} />}{showMobileDetail ? '閉じる' : '詳細'}</button>
@@ -1031,7 +1541,7 @@
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center"><div className="flex items-center gap-2 mb-1 text-slate-500"><Calculator size={16} /><span className="text-xs font-bold">合計得点 (研修除く)</span></div><div className="text-3xl font-black text-slate-700 flex items-baseline">{totalCurrent} <span className="text-sm font-normal text-slate-400 ml-1">/ {totalMax}</span></div></div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100"><span className="block text-xs text-indigo-400 font-bold mb-1">平均スコア</span><span className="text-xl font-bold text-indigo-700 flex items-center gap-1">{avgScore} <span className="text-xs font-normal">/ 5.0</span></span></div>
-                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-100"><span className="block text-xs text-orange-400 font-bold mb-1">経過月数</span><span className="text-xl font-bold text-orange-700">1<span className="text-xs font-normal">ヶ月目</span></span></div>
+                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-100"><span className="block text-xs text-orange-400 font-bold mb-1">経過月数</span><span className="text-xl font-bold text-orange-700">{elapsedMonths}<span className="text-xs font-normal">ヶ月目</span></span></div>
                         </div>
                         </div>
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-8 mb-4">Skill Overview</h3>
@@ -1041,7 +1551,7 @@
                     </div>
                     <div className={`flex-grow flex flex-col h-full overflow-hidden ${showMobileDetail ? 'hidden md:flex' : 'flex'}`}>
                     <div className="bg-white border-b border-gray-200 px-4 lg:px-8 flex items-center justify-between shadow-sm lg:shadow-none z-10 flex-shrink-0">
-                        <div className="flex gap-4 lg:gap-8 overflow-x-auto no-scrollbar w-full lg:w-auto">{[1, 2, 3, 4].map(m => (<button key={m} onClick={() => setActiveTab(m)} className={`py-3 md:py-4 lg:py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${activeTab === m ? `${themeColor} ${isTypeA ? 'border-blue-600' : 'border-emerald-600'}` : 'text-gray-400 border-transparent hover:text-gray-600'}`}>{m === 4 ? '4-6ヶ月目' : `${m}ヶ月目`}</button>))}</div>
+                        <div className="flex gap-4 lg:gap-8 overflow-x-auto no-scrollbar w-full lg:w-auto">{tabs.map(m => (<button key={m} onClick={() => setActiveTab(m)} className={`py-3 md:py-4 lg:py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${activeTab === m ? `${themeColor} ${isTypeA ? 'border-blue-600' : 'border-emerald-600'}` : 'text-gray-400 border-transparent hover:text-gray-600'}`}>{m === 4 ? '4-6ヶ月目' : m === 5 ? '事業部研修' : `${m}ヶ月目`}</button>))}</div>
                         <div className="hidden md:flex items-center gap-2 text-gray-400 text-sm"><CheckSquare size={16} /><span>{filteredItems.length} 項目</span></div>
                     </div>
                     <div className="flex-grow overflow-y-auto p-4 lg:p-8 bg-gray-50">
@@ -1050,10 +1560,29 @@
                             {filteredItems.length === 0 ? (
                             <div className="p-12 text-center text-gray-400"><BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>この期間のタスクはありません</p></div>
                             ) : (
-                            filteredItems.map(item => (<ChecklistItemRow key={item.id} item={item} data={emp.progress[item.id] || { score: 0, checked: false, completedDate: '', memo: '' }} onChange={(data) => handleUpdateProgress(emp.id, item.id, data)} userType={safeType} />))
+                            filteredItems.map(item => (
+                                <ChecklistItemRow 
+                                    key={item.id} 
+                                    item={item} 
+                                    data={emp.progress[item.id] || { score: 0, checked: false, completedDate: '', memo: '' }} 
+                                    onChange={(data) => handleUpdateProgress(emp.id, item.id, data)} 
+                                    onRemove={() => handleToggleItemExclusion(emp.id, item)}
+                                    userType={safeType} 
+                                />
+                            ))
                             )}
+                            
+                            {/* カスタム項目追加ボタン */}
+                            <div className="p-4 flex justify-center border-t border-gray-100 bg-gray-50">
+                                <button 
+                                    onClick={() => { setManageModalTab('list'); setShowManageItemsModal(true); }} 
+                                    className="text-indigo-600 font-bold text-sm flex items-center gap-2 hover:bg-indigo-50 px-6 py-3 rounded-xl transition-all border border-indigo-200 border-dashed hover:border-indigo-400 w-full sm:w-auto shadow-sm"
+                                >
+                                    <Settings size={18}/> {activeTab === 5 ? '研修項目の管理（追加・非表示・復元）' : 'OJT項目の管理（追加・非表示・復元）'}
+                                </button>
+                            </div>
                         </div>
-                        <ManagerApprovalPanel month={activeTab} items={items} progress={emp.progress} approvalData={emp.managerApprovals?.[activeTab]} onApprove={(name) => handleApprove(emp.id, activeTab, name)} />
+                        {activeTab !== 5 && <ManagerApprovalPanel month={activeTab} items={items} progress={emp.progress} approvalData={emp.managerApprovals?.[activeTab]} onApprove={(name) => handleApprove(emp.id, activeTab, name)} />}
                         </div>
                     </div>
                     </div>
@@ -1063,7 +1592,10 @@
 
             return (
                 <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-                {selectedEmpId ? renderDetail() : renderDashboard()}
+                    {currentView === 'home' && renderHome()}
+                    {currentView === 'ojt_list' && renderOjtList()}
+                    {currentView === 'am_list' && renderAmList()}
+                    {currentView === 'detail' && selectedEmpId && renderDetail()}
                 </div>
             );
         }
