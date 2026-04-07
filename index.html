@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -500,45 +500,24 @@
 
         const UserCard = ({ employee, onClick, onDelete }) => {
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-            const [showGoal, setShowGoal] = useState(false);
             const safeType = employee.type || 'A_Inexp';
             const isTypeA = safeType.startsWith('A');
             const typeLabels = { 'A_Exp': 'A型 経験者', 'A_Inexp': 'A型 未経験者', 'B_Exp': 'B型 経験者', 'B_Inexp': 'B型 未経験者' };
             const typeLabel = typeLabels[safeType] || '未設定';
-            const courseInfo = COURSE_GOALS[safeType] || { course: '未設定', goal: '未設定' };
-            const items = getTemplate(safeType);
-            const completedCount = items.filter(i => employee.progress[i.id]?.checked).length;
-            const percent = Math.round((completedCount / items.length) * 100) || 0;
-            const { current, max } = calculateTotalScore(items, employee.progress);
-            const requirementItems = items.filter(i => i.isFacilityRequirement);
-            const isFacilityReady = isTypeA && requirementItems.length > 0 && requirementItems.every(i => {
-                const p = employee.progress[i.id];
-                if (i.isCheckOnly) return p?.checked;
-                return p?.checked && (p?.score >= 3);
-            });
-            const hasInterviewAlert = checkInterviewAlert(employee);
 
             return (
-                <div onClick={onClick} className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border ${hasInterviewAlert ? 'border-red-400 ring-2 ring-red-100' : isFacilityReady ? 'border-amber-200 ring-2 ring-amber-100' : 'border-gray-100'} bg-white p-5 flex flex-col gap-4`}>
+                <div onClick={onClick} className={`relative group cursor-pointer overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 bg-white p-5 flex flex-col gap-4`}>
                 <div className={`absolute top-0 left-0 w-2 h-full ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} />
                 <div className="flex justify-between items-start pl-4">
                     <div className="flex-grow">
                     <div className="flex gap-2 mb-2 flex-wrap">
                         <span className={`inline-block px-2 py-1 rounded-md text-xs font-bold ${isTypeA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{typeLabel}</span>
-                        {isFacilityReady && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200"><Medal size={12} /> 施設外OK</span>}
-                        {hasInterviewAlert && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse"><AlertCircle size={12} /> 面談未実施</span>}
                     </div>
                     <h3 className="text-xl font-bold text-gray-800">{employee.name}</h3>
-                    <p className="text-sm text-gray-500 flex items-center gap-1 mb-2"><Calendar size={14} /> 入社: {employee.joinDate}</p>
-                    <div className="mt-1 mb-2">
-                        <button onClick={(e) => { e.stopPropagation(); setShowGoal(!showGoal); }} className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 w-full text-left">
-                        <Target size={12} /><span className="truncate">{courseInfo.course}</span><ChevronDown size={12} className={`ml-auto transition-transform ${showGoal ? 'rotate-180' : ''}`} />
-                        </button>
-                        {showGoal && <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded text-[11px] text-slate-600 leading-relaxed animate-fadeIn"><span className="font-bold text-slate-700 block mb-0.5">ゴール:</span>{courseInfo.goal}</div>}
-                    </div>
-                    <div className="mt-2 flex gap-1">
-                        {employee.role && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{employee.role}</span>}
-                        {employee.jobType && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{employee.jobType}</span>}
+                    <p className="text-sm text-gray-500 flex items-center gap-1 mb-3"><Calendar size={14} /> 入社: {employee.joinDate}</p>
+                    <div className="mt-2 flex gap-2">
+                        {employee.jobType && <span className="text-[11px] font-bold bg-gray-100 px-2 py-1 rounded-md text-gray-600">{employee.jobType}</span>}
+                        {employee.role && <span className="text-[11px] font-bold bg-gray-100 px-2 py-1 rounded-md text-gray-600">{employee.role}</span>}
                     </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 relative z-20">
@@ -553,10 +532,10 @@
                     )}
                     </div>
                 </div>
-                <div className="pl-4 mt-auto">
-                    <div className="flex justify-between text-xs mb-1 text-gray-500"><span>スコア合計: <span className="font-bold text-gray-700">{current}</span> / {max}</span></div>
-                    <div className="flex justify-between text-sm mb-1 text-gray-600"><span>OJT進捗</span><span className="font-bold">{percent}%</span></div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div className={`h-2.5 rounded-full transition-all duration-1000 ${isTypeA ? 'bg-blue-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }} /></div>
+                <div className="pl-4 mt-2">
+                    <div className="w-full bg-indigo-50 text-indigo-500 text-xs font-bold py-2.5 rounded-lg text-center flex items-center justify-center gap-1.5 transition-colors group-hover:bg-indigo-100 group-hover:text-indigo-600">
+                        <Lock size={14} /> クリックして暗証番号を入力
+                    </div>
                 </div>
                 </div>
             );
@@ -722,16 +701,59 @@
             const [showDetailGoal, setShowDetailGoal] = useState(false);
             const [showMobileDetail, setShowMobileDetail] = useState(false);
             const [isPracticeMode, setIsPracticeMode] = useState(false);
+            
+            // パスワード認証用の状態
+            const [pendingAuthEmp, setPendingAuthEmp] = useState(null);
+            const [inputPassword, setInputPassword] = useState('');
+            const [authError, setAuthError] = useState(false);
+
+            // パスワード初期設定用の状態
+            const [pendingSetupEmp, setPendingSetupEmp] = useState(null);
+            const [setupPassword, setSetupPassword] = useState('');
 
             // GAS Data Manager
             const { employees, isReady, saveStatus, isLoading, actions, isConfigured } = useGasDataManager(isPracticeMode);
 
-            const handleAddEmployee = async (name, type, jobType, role, joinDate) => {
+            const handleAddEmployee = async (name, type, jobType, role, joinDate, password) => {
                 if (!name) return;
-                const newEmp = { id: generateId(), name, type, jobType, role, joinDate, progress: {} };
+                const newEmp = { id: generateId(), name, type, jobType, role, joinDate, password, progress: {} };
                 await actions.addEmployee(newEmp);
                 setIsAdding(false);
                 setSelectedEmpId(newEmp.id);
+            };
+
+            const handleCardClick = (emp) => {
+                // パスワードが設定されている場合は認証モーダルを表示
+                if (emp.password) {
+                    setPendingAuthEmp(emp);
+                    setInputPassword('');
+                    setAuthError(false);
+                } else {
+                    // パスワードが未設定の既存データの場合は、初期設定モーダルを表示
+                    setPendingSetupEmp(emp);
+                    setSetupPassword('');
+                }
+            };
+
+            const handleAuthSubmit = (e) => {
+                e.preventDefault();
+                if (pendingAuthEmp.password === inputPassword) {
+                    setSelectedEmpId(pendingAuthEmp.id);
+                    setPendingAuthEmp(null);
+                } else {
+                    setAuthError(true);
+                }
+            };
+
+            const handleSetupSubmit = async (e) => {
+                e.preventDefault();
+                if (setupPassword.length === 4) {
+                    // 既存の社員データにパスワードを追加して保存・更新
+                    const updatedEmp = { ...pendingSetupEmp, password: setupPassword };
+                    await actions.updateEmployee(updatedEmp);
+                    setSelectedEmpId(pendingSetupEmp.id);
+                    setPendingSetupEmp(null);
+                }
             };
 
             const handleApprove = async (empId, month, name) => {
@@ -813,12 +835,20 @@
                     <h3 className="text-lg font-bold mb-4 text-gray-700">新規社員登録</h3>
                     <form onSubmit={(e) => {
                         e.preventDefault(); const form = e.target;
-                        handleAddEmployee(form.elements.namedItem('name').value, form.elements.namedItem('type').value, form.elements.namedItem('jobType').value, form.elements.namedItem('role').value, form.elements.namedItem('joinDate').value);
+                        handleAddEmployee(
+                            form.elements.namedItem('name').value, 
+                            form.elements.namedItem('type').value, 
+                            form.elements.namedItem('jobType').value, 
+                            form.elements.namedItem('role').value, 
+                            form.elements.namedItem('joinDate').value,
+                            form.elements.namedItem('password').value
+                        );
                     }} className="flex flex-wrap gap-4 items-end">
-                        <div className="flex-grow min-w-[200px] w-full sm:w-auto"><label className="block text-sm font-bold text-gray-600 mb-1">氏名</label><input name="name" className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" placeholder="山田 太郎" required /></div>
-                        <div className="w-full sm:w-40"><label className="block text-sm font-bold text-gray-600 mb-1">入社日</label><input type="date" name="joinDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" required /></div>
-                        <div className="w-full sm:w-40"><label className="block text-sm font-bold text-gray-600 mb-1">雇用形態</label><select name="jobType" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="社員">社員</option><option value="パート">パート</option></select></div>
-                        <div className="w-full sm:w-48"><label className="block text-sm font-bold text-gray-600 mb-1">職種</label><select name="role" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="生活支援員">生活支援員</option><option value="職業指導員">職業指導員</option><option value="チーフ">チーフ</option><option value="サービス管理責任者">サービス管理責任者</option></select></div>
+                        <div className="flex-grow min-w-[150px] w-full sm:w-auto"><label className="block text-sm font-bold text-gray-600 mb-1">氏名</label><input name="name" className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" placeholder="山田 太郎" required /></div>
+                        <div className="w-full sm:w-32"><label className="block text-sm font-bold text-gray-600 mb-1">暗証番号</label><input type="password" name="password" maxLength="4" pattern="\d{4}" className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none font-mono tracking-widest text-center" placeholder="0000" required title="4桁の数字を入力してください" /></div>
+                        <div className="w-full sm:w-36"><label className="block text-sm font-bold text-gray-600 mb-1">入社日</label><input type="date" name="joinDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 outline-none" required /></div>
+                        <div className="w-full sm:w-32"><label className="block text-sm font-bold text-gray-600 mb-1">雇用形態</label><select name="jobType" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="社員">社員</option><option value="パート">パート</option></select></div>
+                        <div className="w-full sm:w-40"><label className="block text-sm font-bold text-gray-600 mb-1">職種</label><select name="role" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="生活支援員">生活支援員</option><option value="職業指導員">職業指導員</option><option value="チーフ">チーフ</option><option value="サービス管理責任者">サービス管理責任者</option></select></div>
                         <div className="w-full sm:w-48"><label className="block text-sm font-bold text-gray-600 mb-1">タイプ</label><select name="type" className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-200 outline-none"><option value="A_Exp">A型 経験者</option><option value="A_Inexp">A型 未経験者</option><option value="B_Exp">B型 経験者</option><option value="B_Inexp">B型 未経験者</option></select></div>
                         <div className="flex gap-2 ml-auto w-full sm:w-auto"><button type="submit" className={`${isPracticeMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-2 rounded-lg font-medium w-full sm:w-auto`} disabled={saveStatus === 'saving'}>{saveStatus === 'saving' ? '保存中...' : '保存'}</button><button type="button" onClick={() => setIsAdding(false)} className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 w-full sm:w-auto">キャンセル</button></div>
                     </form>
@@ -831,8 +861,79 @@
                         {!isConfigured && <p className="mt-2 text-red-500 text-sm">※GASのURL設定が完了していません</p>}
                     </div>
                     )}
-                    {employees.map(emp => (<UserCard key={emp.id} employee={emp} onClick={() => setSelectedEmpId(emp.id)} onDelete={(empId) => handleDelete(empId)} />))}
+                    {employees.map(emp => (<UserCard key={emp.id} employee={emp} onClick={() => handleCardClick(emp)} onDelete={(empId) => handleDelete(empId)} />))}
                 </div>
+                
+                {/* パスワード認証モーダル */}
+                {pendingAuthEmp && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-fadeIn px-4">
+                        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm animate-slideDown">
+                            <div className="flex flex-col items-center mb-6">
+                                <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4">
+                                    <Lock size={32} />
+                                </div>
+                                <h3 className="text-2xl font-bold text-gray-800">{pendingAuthEmp.name}</h3>
+                                <p className="text-sm text-gray-500 mt-2 font-medium">本人確認のため暗証番号を入力してください</p>
+                            </div>
+                            <form onSubmit={handleAuthSubmit}>
+                                <div className="relative">
+                                    <input 
+                                        type="password" 
+                                        maxLength="4" 
+                                        pattern="\d{4}"
+                                        value={inputPassword}
+                                        onChange={(e) => { setInputPassword(e.target.value.replace(/\D/g, '')); setAuthError(false); }}
+                                        className={`w-full text-center text-3xl font-mono tracking-[0.5em] border-2 bg-gray-50/50 rounded-xl py-4 focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all ${authError ? 'border-red-400 text-red-500 focus:border-red-400' : 'border-gray-200 focus:border-indigo-500'}`}
+                                        placeholder="••••"
+                                        autoFocus
+                                        required
+                                    />
+                                    {authError && <div className="absolute -bottom-6 left-0 right-0 text-red-500 text-xs font-bold text-center animate-pulse">暗証番号が間違っています</div>}
+                                </div>
+                                
+                                <div className="flex gap-3 mt-10">
+                                    <button type="button" onClick={() => setPendingAuthEmp(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">キャンセル</button>
+                                    <button type="submit" className="flex-1 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 active:scale-95">ロック解除</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* パスワード初期設定モーダル (既存データ用) */}
+                {pendingSetupEmp && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-fadeIn px-4">
+                        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm animate-slideDown">
+                            <div className="flex flex-col items-center mb-6">
+                                <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mb-4">
+                                    <Lock size={32} />
+                                </div>
+                                <h3 className="text-2xl font-bold text-gray-800">{pendingSetupEmp.name}</h3>
+                                <p className="text-sm text-gray-500 mt-2 font-medium text-center">暗証番号が未設定です。<br/>新しい4桁の暗証番号を設定してください。</p>
+                            </div>
+                            <form onSubmit={handleSetupSubmit}>
+                                <div className="relative">
+                                    <input 
+                                        type="password" 
+                                        maxLength="4" 
+                                        pattern="\d{4}"
+                                        value={setupPassword}
+                                        onChange={(e) => setSetupPassword(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full text-center text-3xl font-mono tracking-[0.5em] border-2 bg-gray-50/50 rounded-xl py-4 focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all border-gray-200 focus:border-orange-500"
+                                        placeholder="••••"
+                                        autoFocus
+                                        required
+                                    />
+                                </div>
+                                
+                                <div className="flex gap-3 mt-10">
+                                    <button type="button" onClick={() => setPendingSetupEmp(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">キャンセル</button>
+                                    <button type="submit" className="flex-1 py-3 rounded-xl font-bold text-white bg-orange-600 hover:bg-orange-700 transition-all shadow-md shadow-orange-200 active:scale-95">設定して進む</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
                 </div>
             );
 
